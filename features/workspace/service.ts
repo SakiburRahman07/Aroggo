@@ -3,6 +3,7 @@ import { db } from "@/lib/db/prisma";
 import { roleLabels } from "@/lib/security/permissions";
 import { inviteMemberSchema, workspaceSettingsSchema } from "@/features/workspace/validation";
 import { sendWorkspaceInvite } from "@/features/auth/service";
+import { env } from "@/config/env";
 
 export async function getWorkspaceTeamSnapshot(workspaceId: string) {
   const [members, invites, departments] = await Promise.all([
@@ -101,14 +102,21 @@ export async function createWorkspaceInvite(params: {
     }
   });
 
-  await sendWorkspaceInvite({
+  const acceptUrl = `${env.NEXT_PUBLIC_APP_URL}/signup?invite=${invite.token}`;
+  const emailResult = await sendWorkspaceInvite({
     workspaceId: params.workspaceId,
     workspaceName: params.workspaceName,
     recipient: invite.email,
     inviterName: params.inviterName,
     roleLabel: roleLabels[invite.role],
-    acceptUrl: `${process.env.NEXT_PUBLIC_APP_URL}/signup?invite=${invite.token}`
+    acceptUrl
   });
+
+  if (!emailResult.ok) {
+    throw new Error(
+      `Invite created but email delivery failed: ${emailResult.error}. Use the manual invite link from the Team page instead.`
+    );
+  }
 
   return invite;
 }
@@ -124,4 +132,3 @@ export async function updateWorkspaceSettings(workspaceId: string, input: unknow
     }
   });
 }
-

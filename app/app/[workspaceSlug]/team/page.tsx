@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
+import { env } from "@/config/env";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { roleLabels } from "@/lib/security/permissions";
 
@@ -88,17 +89,26 @@ export default async function TeamPage({ params }: { params: Promise<{ workspace
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               {snapshot.invites.length > 0 ? (
-                snapshot.invites.map((invite) => (
-                  <div key={invite.id} className="rounded-2xl border border-border/70 p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="font-medium text-slate-950">{invite.email}</p>
-                        <p className="text-muted-foreground">{roleLabels[invite.role]}</p>
+                snapshot.invites.map((invite) => {
+                  const inviteUrl = `${env.NEXT_PUBLIC_APP_URL}/signup?invite=${invite.token}`;
+
+                  return (
+                    <div key={invite.id} className="rounded-2xl border border-border/70 p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-slate-950">{invite.email}</p>
+                          <p className="text-muted-foreground">{roleLabels[invite.role]}</p>
+                        </div>
+                        <p className="text-muted-foreground">Expires {invite.expiresAt.toLocaleDateString()}</p>
                       </div>
-                      <p className="text-muted-foreground">Expires {invite.expiresAt.toLocaleDateString()}</p>
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Manual invite link</p>
+                        <Input readOnly value={inviteUrl} />
+                        <p className="text-xs text-muted-foreground">Email not working? Copy this link and send it manually.</p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-muted-foreground">No pending invites.</p>
               )}
@@ -109,4 +119,3 @@ export default async function TeamPage({ params }: { params: Promise<{ workspace
     </div>
   );
 }
-
