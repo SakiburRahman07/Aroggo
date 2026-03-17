@@ -1,7 +1,44 @@
 import { addMinutes, endOfDay, isAfter, isBefore, startOfDay, subHours } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 import { buildAppointmentVisibilityWhere, buildTaskVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { appointmentSchema, appointmentStatusSchema } from "@/features/appointments/validation";
+
+export type AppointmentListItem = Prisma.AppointmentGetPayload<{
+  include: {
+    patient: true;
+    doctor: {
+      include: { profile: true };
+    };
+  };
+}>;
+
+export type AppointmentDetail = Prisma.AppointmentGetPayload<{
+  include: {
+    patient: true;
+    doctor: {
+      include: { profile: true };
+    };
+    visit: true;
+    tasks: {
+      include: {
+        assignee: {
+          include: { profile: true };
+        };
+      };
+    };
+  };
+}>;
+
+export type AppointmentDoctorOption = Prisma.MembershipGetPayload<{
+  include: {
+    user: {
+      include: {
+        profile: true;
+      };
+    };
+  };
+}>;
 
 function hasScheduleConflict(
   incomingStart: Date,
@@ -15,7 +52,7 @@ function hasScheduleConflict(
   return isBefore(incomingStart, existingEnd) && isAfter(incomingEnd, existingStart);
 }
 
-export async function listAppointments(workspaceId: string, viewer: ViewerContext) {
+export async function listAppointments(workspaceId: string, viewer: ViewerContext): Promise<AppointmentListItem[]> {
   return db.appointment.findMany({
     where: buildAppointmentVisibilityWhere(workspaceId, viewer),
     include: {
@@ -30,7 +67,7 @@ export async function listAppointments(workspaceId: string, viewer: ViewerContex
   });
 }
 
-export async function getAppointmentDetail(workspaceId: string, appointmentId: string, viewer: ViewerContext) {
+export async function getAppointmentDetail(workspaceId: string, appointmentId: string, viewer: ViewerContext): Promise<AppointmentDetail | null> {
   return db.appointment.findFirst({
     where: {
       AND: [buildAppointmentVisibilityWhere(workspaceId, viewer), { id: appointmentId }]
@@ -54,7 +91,7 @@ export async function getAppointmentDetail(workspaceId: string, appointmentId: s
   });
 }
 
-export async function listDoctorOptions(workspaceId: string) {
+export async function listDoctorOptions(workspaceId: string): Promise<AppointmentDoctorOption[]> {
   return db.membership.findMany({
     where: {
       workspaceId,

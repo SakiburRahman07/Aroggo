@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { listAppointments } from "@/features/appointments/service";
+import { listAppointments, type AppointmentListItem } from "@/features/appointments/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { appointmentReadPermissions, appointmentStatusLabels } from "@/lib/security/permissions";
 import { getScopedAppointmentAccess } from "@/lib/security/scopes";
@@ -38,7 +38,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ w
         />
       ) : (
         <div className="grid gap-4">
-          {appointments.map((appointment) => (
+          {appointments.map((appointment: AppointmentListItem) => (
             <Link key={appointment.id} href={`/app/${workspaceSlug}/appointments/${appointment.id}`}>
               <Card className="bg-white/90 transition hover:-translate-y-0.5">
                 <CardContent className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">

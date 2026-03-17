@@ -1,5 +1,5 @@
 import { createAppointmentAction } from "@/features/appointments/actions";
-import { listDoctorOptions } from "@/features/appointments/service";
+import { listDoctorOptions, type AppointmentDoctorOption } from "@/features/appointments/service";
 import { listPatientOptions, type PatientOption } from "@/features/patients/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +44,7 @@ export default async function NewAppointmentPage({
               <label className="text-sm font-medium text-slate-700">Doctor</label>
               <Select name="doctorUserId" required>
                 <option value="">Select doctor</option>
-                {doctors.map((doctor) => (
+                {doctors.map((doctor: AppointmentDoctorOption) => (
                   <option key={doctor.userId} value={doctor.userId}>{doctor.user.profile?.fullName ?? doctor.user.email}</option>
                 ))}
               </Select>

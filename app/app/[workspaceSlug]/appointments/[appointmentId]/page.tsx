@@ -1,5 +1,5 @@
 import { openVisitFromAppointmentAction, updateAppointmentStatusAction } from "@/features/appointments/actions";
-import { getAppointmentDetail } from "@/features/appointments/service";
+import { getAppointmentDetail, type AppointmentDetail } from "@/features/appointments/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -10,6 +10,8 @@ import { getScopedAppointmentAccess, getScopedVisitAccess } from "@/lib/security
 import { formatDateTime } from "@/lib/utils";
 
 const statusOptions = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"] as const;
+
+type AppointmentTask = AppointmentDetail["tasks"][number];
 
 export default async function AppointmentDetailPage({ params }: { params: Promise<{ workspaceSlug: string; appointmentId: string }> }) {
   const { workspaceSlug, appointmentId } = await params;
@@ -65,7 +67,7 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             {appointment.tasks.length > 0 ? (
-              appointment.tasks.map((task) => (
+              appointment.tasks.map((task: AppointmentTask) => (
                 <div key={task.id} className="rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{task.title}</p>
                   <p className="text-muted-foreground">{task.status} - {task.assignee?.profile?.fullName ?? task.assignee?.email ?? "Unassigned"}</p>
