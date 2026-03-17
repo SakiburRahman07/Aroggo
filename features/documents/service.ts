@@ -1,7 +1,14 @@
 import pdfParse from "pdf-parse";
+import { type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 import { chunkText, scoreChunk } from "@/lib/ai/chunking";
 import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
+import {
+  buildDocumentVisibilityWhere,
+  canUploadDocumentType,
+  getScopedDocumentAccess,
+  type ViewerContext
+} from "@/lib/security/scopes";
 import { uploadDocumentBuffer, createSignedDocumentUrl } from "@/lib/storage/supabase";
 import { structuredExtractionSchema, documentUploadSchema } from "@/features/documents/validation";
 
@@ -65,9 +72,9 @@ async function extractStructuredDataFromText(extractedText: string) {
   }
 }
 
-export async function listDocuments(workspaceId: string) {
+export async function listDocuments(workspaceId: string, viewer: ViewerContext) {
   return db.document.findMany({
-    where: { workspaceId },
+    where: buildDocumentVisibilityWhere(workspaceId, viewer),
     include: {
       patient: true
     },
@@ -77,11 +84,11 @@ export async function listDocuments(workspaceId: string) {
   });
 }
 
-export async function getDocumentDetail(workspaceId: string, documentId: string) {
+export async function getDocumentDetail(workspaceId: string, documentId: string, viewer: ViewerContext) {
+  const documentAccess = getScopedDocumentAccess(viewer.role);
   const document = await db.document.findFirst({
     where: {
-      id: documentId,
-      workspaceId
+      AND: [buildDocumentVisibilityWhere(workspaceId, viewer), { id: documentId }]
     },
     include: {
       patient: true,
@@ -98,15 +105,22 @@ export async function getDocumentDetail(workspaceId: string, documentId: string)
     return null;
   }
 
+  const sanitizedDocument = {
+    ...document,
+    extractedText: documentAccess.showRawText ? document.extractedText : null,
+    extractedJson: documentAccess.showStructuredExtraction ? document.extractedJson : null,
+    chunks: documentAccess.showRawText ? document.chunks : []
+  };
+
   try {
     const signedUrl = await createSignedDocumentUrl(document.storagePath);
     return {
-      ...document,
+      ...sanitizedDocument,
       signedUrl
     };
   } catch {
     return {
-      ...document,
+      ...sanitizedDocument,
       signedUrl: null
     };
   }
@@ -115,6 +129,7 @@ export async function getDocumentDetail(workspaceId: string, documentId: string)
 export async function uploadAndProcessDocument(params: {
   workspaceId: string;
   userId: string;
+  role: Role;
   formData: FormData;
 }) {
   const file = params.formData.get("file");
@@ -128,6 +143,10 @@ export async function uploadAndProcessDocument(params: {
     docType: params.formData.get("docType"),
     patientId: params.formData.get("patientId") || undefined
   });
+
+  if (!canUploadDocumentType(params.role, data.docType)) {
+    throw new Error("Your role cannot upload this document type.");
+  }
 
   const storagePath = `${params.workspaceId}/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
 
@@ -192,11 +211,12 @@ export async function uploadAndProcessDocument(params: {
   }
 }
 
-export async function retrieveRelevantChunks(workspaceId: string, question: string, patientId?: string) {
+export async function retrieveRelevantChunks(workspaceId: string, question: string, viewer: ViewerContext, patientId?: string) {
   const chunks = await db.documentChunk.findMany({
     where: {
       workspaceId,
-      patientId: patientId || undefined
+      ...(patientId ? { patientId } : {}),
+      document: buildDocumentVisibilityWhere(workspaceId, viewer, patientId)
     },
     include: {
       document: true
@@ -209,7 +229,7 @@ export async function retrieveRelevantChunks(workspaceId: string, question: stri
       ...chunk,
       relevance: scoreChunk(question, chunk.content)
     }))
-    .sort((a, b) => b.relevance - a.relevance)
+    .sort((left, right) => right.relevance - left.relevance)
     .slice(0, 6)
     .filter((item) => item.relevance > 0 || item.chunkIndex < 2);
 }

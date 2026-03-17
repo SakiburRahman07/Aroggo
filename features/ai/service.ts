@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/prisma";
 import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
+import { buildVisitVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { noteTaskSuggestionsSchema } from "@/features/ai/validation";
 import { getWorkspaceAnalytics } from "@/features/analytics/service";
 import { retrieveRelevantChunks } from "@/features/documents/service";
@@ -20,15 +21,9 @@ function buildOperationalSummaryFallback(analytics: WorkspaceAnalyticsSnapshot) 
   }, 0);
   const busiestDoctor = [...analytics.doctorWorkload].sort((left, right) => right.appointmentsToday - left.appointmentsToday)[0];
   const priorities = [
-    analytics.overdueTasks > 0
-      ? `${analytics.overdueTasks} overdue ${pluralize(analytics.overdueTasks, "task")}`
-      : null,
-    analytics.followUps > 0
-      ? `${analytics.followUps} ${pluralize(analytics.followUps, "follow-up")} due within 7 days`
-      : null,
-    pendingUploads > 0
-      ? `${pendingUploads} uploaded ${pluralize(pendingUploads, "document")} still processing`
-      : null
+    analytics.overdueTasks > 0 ? `${analytics.overdueTasks} overdue ${pluralize(analytics.overdueTasks, "task")}` : null,
+    analytics.followUps > 0 ? `${analytics.followUps} ${pluralize(analytics.followUps, "follow-up")} due within 7 days` : null,
+    pendingUploads > 0 ? `${pendingUploads} uploaded ${pluralize(pendingUploads, "document")} still processing` : null
   ].filter(Boolean);
 
   return [
@@ -62,13 +57,12 @@ async function getCachedOperationalSummary(workspaceId: string, createdAfter?: D
 export async function answerGroundedQuestion(params: {
   workspaceId: string;
   userId: string;
+  viewer: ViewerContext;
   question: string;
   patientId?: string;
 }) {
-  const chunks = await retrieveRelevantChunks(params.workspaceId, params.question, params.patientId);
-  const context = chunks
-    .map((chunk, index) => `Source ${index + 1} (${chunk.document.title}): ${chunk.content}`)
-    .join("\n\n");
+  const chunks = await retrieveRelevantChunks(params.workspaceId, params.question, params.viewer, params.patientId);
+  const context = chunks.map((chunk, index) => `Source ${index + 1} (${chunk.document.title}): ${chunk.content}`).join("\n\n");
 
   const fallback = context
     ? `Relevant records were found. Review these source snippets:\n\n${context.slice(0, 1000)}`
@@ -102,11 +96,10 @@ export async function answerGroundedQuestion(params: {
   return query;
 }
 
-export async function generateVisitDraft(workspaceId: string, userId: string, visitId: string) {
+export async function generateVisitDraft(workspaceId: string, userId: string, visitId: string, viewer: ViewerContext) {
   const visit = await db.visit.findFirst({
     where: {
-      id: visitId,
-      workspaceId
+      AND: [buildVisitVisibilityWhere(workspaceId, viewer), { id: visitId }]
     },
     include: {
       patient: true,

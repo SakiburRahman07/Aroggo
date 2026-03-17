@@ -42,8 +42,8 @@ export async function createAppointmentAction(workspaceSlug: string, formData: F
 }
 
 export async function updateAppointmentStatusAction(workspaceSlug: string, appointmentId: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "appointments:write");
-  const appointment = await updateAppointmentStatus(appointmentId, {
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, "appointments:write");
+  const appointment = await updateAppointmentStatus(workspace.id, appointmentId, viewer, {
     status: formData.get("status")
   });
 
@@ -59,9 +59,8 @@ export async function updateAppointmentStatusAction(workspaceSlug: string, appoi
   revalidatePath(`/app/${workspaceSlug}/appointments`);
 }
 
-export async function openVisitFromAppointmentAction(workspaceSlug: string, appointmentId: string, doctorUserId: string, patientId: string) {
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "visits:write");
-  const visit = await ensureVisitForAppointment(workspace.id, appointmentId, doctorUserId, patientId);
+export async function openVisitFromAppointmentAction(workspaceSlug: string, appointmentId: string) {
+  const { workspace, viewer } = await requireWorkspaceContext(workspaceSlug, "visits:write");
+  const visit = await ensureVisitForAppointment(workspace.id, appointmentId, viewer);
   redirect(`/app/${workspaceSlug}/visits/${visit.id}`);
 }
-

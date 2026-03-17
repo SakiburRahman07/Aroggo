@@ -2,12 +2,13 @@ import { askGroundedQuestionAction, confirmMeetingTasksAction, generateMeetingTa
 import { listPatientOptions } from "@/features/patients/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { db } from "@/lib/db/prisma";
+import { aiUsePermissions, taskWritePermissions } from "@/lib/security/permissions";
+import { hasRequestedPermission } from "@/lib/security/permissions";
 
 export default async function AiAssistantPage({
   params,
@@ -18,8 +19,9 @@ export default async function AiAssistantPage({
 }) {
   const { workspaceSlug } = await params;
   const { queryId, draftId } = await searchParams;
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "ai:use");
-  const patients = await listPatientOptions(workspace.id);
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, aiUsePermissions);
+  const patients = await listPatientOptions(workspace.id, viewer);
+  const canCreateTasks = hasRequestedPermission(membership.role, taskWritePermissions);
   const [query, draft] = await Promise.all([
     queryId
       ? db.aIQuery.findFirst({
@@ -42,7 +44,7 @@ export default async function AiAssistantPage({
   ]);
   const askAction = askGroundedQuestionAction.bind(null, workspaceSlug);
   const noteAction = generateMeetingTasksAction.bind(null, workspaceSlug);
-  const confirmAction = draft ? confirmMeetingTasksAction.bind(null, workspaceSlug, draft.id) : null;
+  const confirmAction = draft && canCreateTasks ? confirmMeetingTasksAction.bind(null, workspaceSlug, draft.id) : null;
 
   return (
     <div className="space-y-8">
@@ -56,7 +58,7 @@ export default async function AiAssistantPage({
             <form action={askAction} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Ask a question</label>
-                <Textarea name="question" placeholder="What follow-up items appear across this patient’s recent records?" required />
+                <Textarea name="question" placeholder="What follow-up items appear across this patient's recent records?" required />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Scope to patient (optional)</label>
@@ -104,4 +106,3 @@ export default async function AiAssistantPage({
     </div>
   );
 }
-

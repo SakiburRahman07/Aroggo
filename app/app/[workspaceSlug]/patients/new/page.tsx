@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { requireWorkspaceContext } from "@/lib/auth/session";
 
 export default async function NewPatientPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
   const { workspaceSlug } = await params;
+  await requireWorkspaceContext(workspaceSlug, "patients:write_basic");
   const createAction = createPatientAction.bind(null, workspaceSlug);
 
   return (
@@ -65,4 +67,3 @@ export default async function NewPatientPage({ params }: { params: Promise<{ wor
     </div>
   );
 }
-

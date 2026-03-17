@@ -7,7 +7,7 @@ import { recordAuditLog } from "@/lib/audit";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 
 export async function createPatientAction(workspaceSlug: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "patients:write");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "patients:write_basic");
   const patient = await createPatient(workspace.id, membership.userId, {
     fullName: formData.get("fullName"),
     dob: formData.get("dob"),
@@ -32,9 +32,9 @@ export async function createPatientAction(workspaceSlug: string, formData: FormD
 }
 
 export async function updatePatientAction(workspaceSlug: string, patientId: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "patients:write");
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, "patients:write_basic");
 
-  await updatePatient(patientId, {
+  await updatePatient(workspace.id, patientId, viewer, {
     fullName: formData.get("fullName"),
     dob: formData.get("dob"),
     gender: formData.get("gender"),
@@ -55,4 +55,3 @@ export async function updatePatientAction(workspaceSlug: string, patientId: stri
 
   revalidatePath(`/app/${workspaceSlug}/patients/${patientId}`);
 }
-

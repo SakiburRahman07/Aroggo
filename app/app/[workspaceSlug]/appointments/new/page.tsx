@@ -18,8 +18,8 @@ export default async function NewAppointmentPage({
 }) {
   const { workspaceSlug } = await params;
   const { patientId } = await searchParams;
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "appointments:write");
-  const [patients, doctors] = await Promise.all([listPatientOptions(workspace.id), listDoctorOptions(workspace.id)]);
+  const { workspace, viewer } = await requireWorkspaceContext(workspaceSlug, "appointments:write");
+  const [patients, doctors] = await Promise.all([listPatientOptions(workspace.id, viewer), listDoctorOptions(workspace.id)]);
   const createAction = createAppointmentAction.bind(null, workspaceSlug);
 
   return (
@@ -74,4 +74,3 @@ export default async function NewAppointmentPage({
     </div>
   );
 }
-

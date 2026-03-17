@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { generateVisitDraft } from "@/features/ai/service";
-import { updateVisit, setVisitAiDraft } from "@/features/visits/service";
+import { setVisitAiDraft, updateVisit } from "@/features/visits/service";
 import { recordAuditLog } from "@/lib/audit";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 
 export async function updateVisitAction(workspaceSlug: string, visitId: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "visits:write");
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, "visits:write");
 
-  await updateVisit(visitId, {
+  await updateVisit(workspace.id, visitId, viewer, {
     symptoms: formData.get("symptoms"),
     observations: formData.get("observations"),
     diagnosisNote: formData.get("diagnosisNote"),
@@ -31,9 +31,9 @@ export async function updateVisitAction(workspaceSlug: string, visitId: string, 
 }
 
 export async function generateVisitDraftAction(workspaceSlug: string, visitId: string) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "ai:use");
-  const aiDraft = await generateVisitDraft(workspace.id, membership.userId, visitId);
-  await setVisitAiDraft(visitId, aiDraft);
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, "ai:use_clinical");
+  const aiDraft = await generateVisitDraft(workspace.id, membership.userId, visitId, viewer);
+  await setVisitAiDraft(workspace.id, visitId, viewer, aiDraft);
 
   await recordAuditLog({
     workspaceId: workspace.id,
@@ -45,4 +45,3 @@ export async function generateVisitDraftAction(workspaceSlug: string, visitId: s
 
   revalidatePath(`/app/${workspaceSlug}/visits/${visitId}`);
 }
-

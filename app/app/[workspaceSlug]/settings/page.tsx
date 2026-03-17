@@ -8,7 +8,7 @@ import { requireWorkspaceContext } from "@/lib/auth/session";
 
 export default async function SettingsPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
   const { workspaceSlug } = await params;
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "workspace:manage");
+  const { workspace } = await requireWorkspaceContext(workspaceSlug, "settings:manage");
   const updateAction = updateWorkspaceSettingsAction.bind(null, workspaceSlug);
 
   return (
@@ -47,7 +47,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ works
             <CardTitle>Platform notes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-7 text-muted-foreground">
-            <p>OpsPilot Health keeps authorization and tenant isolation on the server. Documents are uploaded to Supabase Storage with signed access links, AI output is persisted for review, and audit logs capture sensitive mutations.</p>
+            <p>Aroggo keeps authorization and tenant isolation on the server. Documents are uploaded to Supabase Storage with signed access links, AI output is persisted for review, and audit logs capture sensitive mutations.</p>
             <p>Future workspace controls can expand here for reminder policy, AI guardrails, billing configuration, and usage limits.</p>
           </CardContent>
         </Card>
@@ -55,4 +55,3 @@ export default async function SettingsPage({ params }: { params: Promise<{ works
     </div>
   );
 }
-

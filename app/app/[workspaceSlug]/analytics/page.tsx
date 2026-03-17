@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { getWorkspaceAnalytics } from "@/features/analytics/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
+import { analyticsReadPermissions } from "@/lib/security/permissions";
 
 export default async function AnalyticsPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
   const { workspaceSlug } = await params;
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "analytics:read");
+  const { workspace } = await requireWorkspaceContext(workspaceSlug, analyticsReadPermissions);
   const analytics = await getWorkspaceAnalytics(workspace.id);
 
   return (
@@ -53,4 +54,3 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ work
     </div>
   );
 }
-

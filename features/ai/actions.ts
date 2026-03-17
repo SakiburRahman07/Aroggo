@@ -5,12 +5,14 @@ import { revalidatePath } from "next/cache";
 import { answerGroundedQuestion, confirmMeetingTasks, generateMeetingTasks } from "@/features/ai/service";
 import { recordAuditLog } from "@/lib/audit";
 import { requireWorkspaceContext } from "@/lib/auth/session";
+import { aiUsePermissions, taskWritePermissions } from "@/lib/security/permissions";
 
 export async function askGroundedQuestionAction(workspaceSlug: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "ai:use");
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, aiUsePermissions);
   const query = await answerGroundedQuestion({
     workspaceId: workspace.id,
     userId: membership.userId,
+    viewer,
     question: String(formData.get("question") ?? ""),
     patientId: String(formData.get("patientId") ?? "") || undefined
   });
@@ -27,7 +29,7 @@ export async function askGroundedQuestionAction(workspaceSlug: string, formData:
 }
 
 export async function generateMeetingTasksAction(workspaceSlug: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "ai:use");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, aiUsePermissions);
   const query = await generateMeetingTasks({
     workspaceId: workspace.id,
     userId: membership.userId,
@@ -46,7 +48,7 @@ export async function generateMeetingTasksAction(workspaceSlug: string, formData
 }
 
 export async function confirmMeetingTasksAction(workspaceSlug: string, aiQueryId: string) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "tasks:write");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, taskWritePermissions);
   await confirmMeetingTasks(workspace.id, membership.userId, aiQueryId);
 
   await recordAuditLog({
@@ -60,4 +62,3 @@ export async function confirmMeetingTasksAction(workspaceSlug: string, aiQueryId
   revalidatePath(`/app/${workspaceSlug}/tasks`);
   redirect(`/app/${workspaceSlug}/tasks`);
 }
-

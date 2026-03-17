@@ -1,11 +1,27 @@
 import { db } from "@/lib/db/prisma";
+import { buildVisitVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { visitSchema } from "@/features/visits/validation";
 
-export async function getVisitDetail(workspaceId: string, visitId: string) {
+export async function listVisits(workspaceId: string, viewer: ViewerContext) {
+  return db.visit.findMany({
+    where: buildVisitVisibilityWhere(workspaceId, viewer),
+    include: {
+      patient: true,
+      appointment: true,
+      doctor: {
+        include: { profile: true }
+      }
+    },
+    orderBy: {
+      updatedAt: "desc"
+    }
+  });
+}
+
+export async function getVisitDetail(workspaceId: string, visitId: string, viewer: ViewerContext) {
   return db.visit.findFirst({
     where: {
-      id: visitId,
-      workspaceId
+      AND: [buildVisitVisibilityWhere(workspaceId, viewer), { id: visitId }]
     },
     include: {
       patient: true,
@@ -17,11 +33,21 @@ export async function getVisitDetail(workspaceId: string, visitId: string) {
   });
 }
 
-export async function updateVisit(visitId: string, input: unknown) {
+export async function updateVisit(workspaceId: string, visitId: string, viewer: ViewerContext, input: unknown) {
   const data = visitSchema.parse(input);
+  const visit = await db.visit.findFirst({
+    where: {
+      AND: [buildVisitVisibilityWhere(workspaceId, viewer), { id: visitId }]
+    },
+    select: { id: true }
+  });
+
+  if (!visit) {
+    throw new Error("Visit not found in the current access scope.");
+  }
 
   return db.visit.update({
-    where: { id: visitId },
+    where: { id: visit.id },
     data: {
       symptoms: data.symptoms || null,
       observations: data.observations || null,
@@ -33,12 +59,22 @@ export async function updateVisit(visitId: string, input: unknown) {
   });
 }
 
-export async function setVisitAiDraft(visitId: string, aiDraft: string) {
+export async function setVisitAiDraft(workspaceId: string, visitId: string, viewer: ViewerContext, aiDraft: string) {
+  const visit = await db.visit.findFirst({
+    where: {
+      AND: [buildVisitVisibilityWhere(workspaceId, viewer), { id: visitId }]
+    },
+    select: { id: true }
+  });
+
+  if (!visit) {
+    throw new Error("Visit not found in the current access scope.");
+  }
+
   return db.visit.update({
-    where: { id: visitId },
+    where: { id: visit.id },
     data: {
       aiDraft
     }
   });
 }
-

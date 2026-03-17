@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/prisma";
 import { getAuthSession } from "@/lib/auth/options";
-import { hasPermission, type Permission } from "@/lib/security/permissions";
+import { getDefaultDashboardRoute } from "@/lib/security/navigation";
+import { hasRequestedPermission, type PermissionRequest } from "@/lib/security/permissions";
 
 export async function requireUser() {
   const session = await getAuthSession();
@@ -28,13 +29,53 @@ export async function getUserWorkspaces() {
     include: {
       workspace: true
     },
-    orderBy: {
-      createdAt: "asc"
-    }
+    orderBy: [
+      { role: "asc" },
+      { createdAt: "asc" }
+    ]
   });
 }
 
-export async function requireWorkspaceContext(workspaceSlug: string, permission?: Permission) {
+export async function resolveAuthenticatedHomeRoute() {
+  const memberships = await getUserWorkspaces();
+
+  if (memberships.length === 0) {
+    return "/login";
+  }
+
+  const preferredMembership = memberships.find((membership) => membership.role === "SUPER_ADMIN") ?? memberships[0];
+  return getDefaultDashboardRoute(preferredMembership.role, preferredMembership.workspace.slug);
+}
+
+export async function requirePlatformAdmin() {
+  const user = await requireUser();
+  const membership = await db.membership.findFirst({
+    where: {
+      userId: user.id,
+      status: "ACTIVE",
+      role: "SUPER_ADMIN"
+    },
+    include: {
+      workspace: true,
+      user: {
+        include: {
+          profile: true
+        }
+      }
+    }
+  });
+
+  if (!membership) {
+    redirect(await resolveAuthenticatedHomeRoute());
+  }
+
+  return {
+    user,
+    membership
+  };
+}
+
+export async function requireWorkspaceContext(workspaceSlug: string, permission?: PermissionRequest) {
   const user = await requireUser();
   const membership = await db.membership.findFirst({
     where: {
@@ -56,23 +97,20 @@ export async function requireWorkspaceContext(workspaceSlug: string, permission?
   });
 
   if (!membership) {
-    const memberships = await getUserWorkspaces();
-
-    if (memberships.length > 0) {
-      redirect(`/app/${memberships[0].workspace.slug}`);
-    }
-
-    redirect("/login");
+    redirect(await resolveAuthenticatedHomeRoute());
   }
 
-  if (permission && !hasPermission(membership.role, permission)) {
-    redirect(`/app/${workspaceSlug}`);
+  if (permission && !hasRequestedPermission(membership.role, permission)) {
+    redirect(getDefaultDashboardRoute(membership.role, workspaceSlug));
   }
 
   return {
     user,
     workspace: membership.workspace,
-    membership
+    membership,
+    viewer: {
+      role: membership.role,
+      userId: membership.userId
+    }
   };
 }
-

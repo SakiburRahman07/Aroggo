@@ -1,9 +1,25 @@
 import { db } from "@/lib/db/prisma";
+import { buildTaskVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { taskCommentSchema, taskSchema, taskStatusSchema } from "@/features/tasks/validation";
 
-export async function listTasks(workspaceId: string) {
+async function ensureVisibleTask(workspaceId: string, taskId: string, viewer: ViewerContext) {
+  const task = await db.task.findFirst({
+    where: {
+      AND: [buildTaskVisibilityWhere(workspaceId, viewer), { id: taskId }]
+    },
+    select: { id: true }
+  });
+
+  if (!task) {
+    throw new Error("Task not found in the current access scope.");
+  }
+
+  return task;
+}
+
+export async function listTasks(workspaceId: string, viewer: ViewerContext) {
   return db.task.findMany({
-    where: { workspaceId },
+    where: buildTaskVisibilityWhere(workspaceId, viewer),
     include: {
       patient: true,
       appointment: true,
@@ -19,10 +35,7 @@ export async function listTasks(workspaceId: string) {
         orderBy: { createdAt: "asc" }
       }
     },
-    orderBy: [
-      { dueAt: "asc" },
-      { createdAt: "desc" }
-    ]
+    orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }]
   });
 }
 
@@ -44,8 +57,9 @@ export async function createTask(workspaceId: string, createdById: string, input
   });
 }
 
-export async function updateTaskStatus(taskId: string, input: unknown) {
+export async function updateTaskStatus(workspaceId: string, taskId: string, viewer: ViewerContext, input: unknown) {
   const data = taskStatusSchema.parse(input);
+  await ensureVisibleTask(workspaceId, taskId, viewer);
 
   return db.task.update({
     where: { id: taskId },
@@ -56,13 +70,14 @@ export async function updateTaskStatus(taskId: string, input: unknown) {
   });
 }
 
-export async function addTaskComment(taskId: string, userId: string, input: unknown) {
+export async function addTaskComment(workspaceId: string, taskId: string, viewer: ViewerContext, input: unknown) {
   const data = taskCommentSchema.parse(input);
+  await ensureVisibleTask(workspaceId, taskId, viewer);
 
   return db.taskComment.create({
     data: {
       taskId,
-      userId,
+      userId: viewer.userId,
       content: data.content
     }
   });
@@ -102,4 +117,3 @@ export async function createTasksFromSuggestions(
     take: suggestions.length
   });
 }
-

@@ -8,10 +8,11 @@ import { recordAuditLog } from "@/lib/audit";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 
 export async function uploadDocumentAction(workspaceSlug: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "documents:write");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, ["documents:write_clinical", "documents:write_lab", "reports:upload"]);
   const documentId = await uploadAndProcessDocument({
     workspaceId: workspace.id,
     userId: membership.userId,
+    role: membership.role,
     formData
   });
 
@@ -37,4 +38,3 @@ export async function uploadDocumentAction(workspaceSlug: string, formData: Form
   revalidatePath(`/app/${workspaceSlug}/documents`);
   redirect(`/app/${workspaceSlug}/documents/${documentId}`);
 }
-

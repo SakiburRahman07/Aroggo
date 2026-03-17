@@ -8,55 +8,67 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { env } from "@/config/env";
 import { requireWorkspaceContext } from "@/lib/auth/session";
-import { roleLabels } from "@/lib/security/permissions";
+import { hasPermission, roleLabels } from "@/lib/security/permissions";
 
 const roleOptions = ["CLINIC_ADMIN", "DOCTOR", "RECEPTIONIST", "LAB_STAFF", "OPERATIONS_MANAGER"] as const;
 
 export default async function TeamPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
   const { workspaceSlug } = await params;
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "members:manage");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, ["members:read", "members:manage"]);
   const snapshot = await getWorkspaceTeamSnapshot(workspace.id);
   const inviteAction = inviteWorkspaceMemberAction.bind(null, workspaceSlug);
+  const canManageMembers = hasPermission(membership.role, "members:manage");
 
   return (
     <div className="space-y-8">
-      <PageHeader eyebrow="Team" title="Members and invites" description="Manage access, roles, and department placement for your clinic workspace." />
+      <PageHeader eyebrow="Team" title={canManageMembers ? "Members and invites" : "Team overview"} description="Review roles, department coverage, and invite status for your clinic workspace." />
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Invite staff</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form action={inviteAction} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Email</label>
-                <Input name="email" type="email" placeholder="staff@clinic.com" required />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Role</label>
-                <Select name="role" defaultValue="DOCTOR">
-                  {roleOptions.map((role) => (
-                    <option key={role} value={role}>
-                      {roleLabels[role]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Department</label>
-                <Select name="departmentId" defaultValue="">
-                  <option value="">No department</option>
-                  {snapshot.departments.map((department) => (
-                    <option key={department.id} value={department.id}>
-                      {department.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <Button type="submit" className="w-full">Send invite</Button>
-            </form>
-          </CardContent>
-        </Card>
+        {canManageMembers ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Invite staff</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form action={inviteAction} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Email</label>
+                  <Input name="email" type="email" placeholder="staff@clinic.com" required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Role</label>
+                  <Select name="role" defaultValue="DOCTOR">
+                    {roleOptions.map((role) => (
+                      <option key={role} value={role}>{roleLabels[role]}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Department</label>
+                  <Select name="departmentId" defaultValue="">
+                    <option value="">No department</option>
+                    {snapshot.departments.map((department) => (
+                      <option key={department.id} value={department.id}>{department.name}</option>
+                    ))}
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full">Send invite</Button>
+              </form>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Department coverage</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              {snapshot.departments.map((department) => (
+                <div key={department.id} className="rounded-2xl border border-border/70 p-4">
+                  <p className="font-medium text-slate-950">{department.name}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -83,37 +95,39 @@ export default async function TeamPage({ params }: { params: Promise<{ workspace
               )}
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending invites</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              {snapshot.invites.length > 0 ? (
-                snapshot.invites.map((invite) => {
-                  const inviteUrl = `${env.NEXT_PUBLIC_APP_URL}/signup?invite=${invite.token}`;
+          {canManageMembers ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending invites</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {snapshot.invites.length > 0 ? (
+                  snapshot.invites.map((invite) => {
+                    const inviteUrl = `${env.NEXT_PUBLIC_APP_URL}/signup?invite=${invite.token}`;
 
-                  return (
-                    <div key={invite.id} className="rounded-2xl border border-border/70 p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-slate-950">{invite.email}</p>
-                          <p className="text-muted-foreground">{roleLabels[invite.role]}</p>
+                    return (
+                      <div key={invite.id} className="space-y-3 rounded-2xl border border-border/70 p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="font-medium text-slate-950">{invite.email}</p>
+                            <p className="text-muted-foreground">{roleLabels[invite.role]}</p>
+                          </div>
+                          <p className="text-muted-foreground">Expires {invite.expiresAt.toLocaleDateString()}</p>
                         </div>
-                        <p className="text-muted-foreground">Expires {invite.expiresAt.toLocaleDateString()}</p>
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Manual invite link</p>
+                          <Input readOnly value={inviteUrl} />
+                          <p className="text-xs text-muted-foreground">Email not working? Copy this link and send it manually.</p>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Manual invite link</p>
-                        <Input readOnly value={inviteUrl} />
-                        <p className="text-xs text-muted-foreground">Email not working? Copy this link and send it manually.</p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-muted-foreground">No pending invites.</p>
-              )}
-            </CardContent>
-          </Card>
+                    );
+                  })
+                ) : (
+                  <p className="text-muted-foreground">No pending invites.</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

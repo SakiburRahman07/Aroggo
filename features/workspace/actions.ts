@@ -32,7 +32,7 @@ export async function inviteWorkspaceMemberAction(workspaceSlug: string, formDat
 }
 
 export async function updateWorkspaceSettingsAction(workspaceSlug: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "workspace:manage");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "settings:manage");
 
   await updateWorkspaceSettings(workspace.id, {
     name: formData.get("name"),
@@ -48,6 +48,5 @@ export async function updateWorkspaceSettingsAction(workspaceSlug: string, formD
   });
 
   revalidatePath(`/app/${workspaceSlug}/settings`);
-  revalidatePath(`/app/${workspaceSlug}`);
+  revalidatePath(`/app/${workspaceSlug}/overview`);
 }
-

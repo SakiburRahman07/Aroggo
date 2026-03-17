@@ -5,28 +5,37 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { listAppointments } from "@/features/appointments/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
-import { appointmentStatusLabels } from "@/lib/security/permissions";
+import { appointmentReadPermissions, appointmentStatusLabels } from "@/lib/security/permissions";
+import { getScopedAppointmentAccess } from "@/lib/security/scopes";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function AppointmentsPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
   const { workspaceSlug } = await params;
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "appointments:read");
-  const appointments = await listAppointments(workspace.id);
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, appointmentReadPermissions);
+  const appointmentAccess = getScopedAppointmentAccess(membership.role);
+  const appointments = await listAppointments(workspace.id, viewer);
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Appointments"
-        title="Schedule and manage visits"
-        description="Coordinate patient bookings, doctor capacity, and status updates in one place."
+        title={membership.role === "DOCTOR" ? "My schedule" : "Schedule and manage visits"}
+        description="Coordinate bookings, doctor capacity, and patient flow inside the current workspace scope."
         actions={
-          <Button asChild>
-            <Link href={`/app/${workspaceSlug}/appointments/new`}>Book appointment</Link>
-          </Button>
+          appointmentAccess.canWrite ? (
+            <Button asChild>
+              <Link href={`/app/${workspaceSlug}/appointments/new`}>Book appointment</Link>
+            </Button>
+          ) : undefined
         }
       />
       {appointments.length === 0 ? (
-        <EmptyState title="No appointments yet" description="Create the first appointment to kick off clinic workflow and visit management." actionHref={`/app/${workspaceSlug}/appointments/new`} actionLabel="Book appointment" />
+        <EmptyState
+          title="No appointments yet"
+          description="Appointments in your current scope will appear here once scheduling starts."
+          actionHref={appointmentAccess.canWrite ? `/app/${workspaceSlug}/appointments/new` : undefined}
+          actionLabel={appointmentAccess.canWrite ? "Book appointment" : undefined}
+        />
       ) : (
         <div className="grid gap-4">
           {appointments.map((appointment) => (
@@ -39,7 +48,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ w
                   </div>
                   <div className="text-sm text-muted-foreground md:text-right">
                     <p>{formatDateTime(appointment.scheduledAt)}</p>
-                    <p>{appointment.doctor.profile?.fullName ?? appointment.doctor.email} • {appointmentStatusLabels[appointment.status]}</p>
+                    <p>{appointment.doctor.profile?.fullName ?? appointment.doctor.email} - {appointmentStatusLabels[appointment.status]}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -50,4 +59,3 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ w
     </div>
   );
 }
-

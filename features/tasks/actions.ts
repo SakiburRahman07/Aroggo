@@ -5,9 +5,10 @@ import { createNotification } from "@/features/notifications/service";
 import { addTaskComment, createTask, updateTaskStatus } from "@/features/tasks/service";
 import { recordAuditLog } from "@/lib/audit";
 import { requireWorkspaceContext } from "@/lib/auth/session";
+import { taskWritePermissions } from "@/lib/security/permissions";
 
 export async function createTaskAction(workspaceSlug: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "tasks:write");
+  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, taskWritePermissions);
   const task = await createTask(workspace.id, membership.userId, {
     title: formData.get("title"),
     description: formData.get("description"),
@@ -43,8 +44,8 @@ export async function createTaskAction(workspaceSlug: string, formData: FormData
 }
 
 export async function updateTaskStatusAction(workspaceSlug: string, taskId: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "tasks:write");
-  await updateTaskStatus(taskId, {
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, taskWritePermissions);
+  await updateTaskStatus(workspace.id, taskId, viewer, {
     status: formData.get("status")
   });
 
@@ -60,8 +61,8 @@ export async function updateTaskStatusAction(workspaceSlug: string, taskId: stri
 }
 
 export async function addTaskCommentAction(workspaceSlug: string, taskId: string, formData: FormData) {
-  const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "tasks:write");
-  await addTaskComment(taskId, membership.userId, {
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, taskWritePermissions);
+  await addTaskComment(workspace.id, taskId, viewer, {
     content: formData.get("content")
   });
 
@@ -75,4 +76,3 @@ export async function addTaskCommentAction(workspaceSlug: string, taskId: string
 
   revalidatePath(`/app/${workspaceSlug}/tasks`);
 }
-

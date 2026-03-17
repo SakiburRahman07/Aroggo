@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { listPatients } from "@/features/patients/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
+import { patientReadPermissions, roleLabels } from "@/lib/security/permissions";
+import { getScopedPatientAccess } from "@/lib/security/scopes";
 import { formatDate } from "@/lib/utils";
 
 export default async function PatientsPage({
@@ -17,26 +19,34 @@ export default async function PatientsPage({
 }) {
   const { workspaceSlug } = await params;
   const { q } = await searchParams;
-  const { workspace } = await requireWorkspaceContext(workspaceSlug, "patients:read");
-  const patients = await listPatients(workspace.id, q);
+  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, patientReadPermissions);
+  const patientAccess = getScopedPatientAccess(membership.role);
+  const patients = await listPatients(workspace.id, viewer, q);
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Patients"
-        title="Patient operations"
-        description="Search, register, and review patient records inside the current workspace."
+        title={membership.role === "DOCTOR" ? "My patient panel" : "Patient operations"}
+        description={`Showing patient records for the ${roleLabels[membership.role]} view in this workspace.`}
         actions={
-          <Button asChild>
-            <Link href={`/app/${workspaceSlug}/patients/new`}>Register patient</Link>
-          </Button>
+          patientAccess.canWriteBasic ? (
+            <Button asChild>
+              <Link href={`/app/${workspaceSlug}/patients/new`}>Register patient</Link>
+            </Button>
+          ) : undefined
         }
       />
       <form className="max-w-md">
         <Input name="q" defaultValue={q} placeholder="Search by name, code, or phone" />
       </form>
       {patients.length === 0 ? (
-        <EmptyState title="No patients found" description="Create the first patient record to start scheduling visits and linking clinic documents." actionHref={`/app/${workspaceSlug}/patients/new`} actionLabel="Register patient" />
+        <EmptyState
+          title="No patients found"
+          description="Patients in your current scope will appear here once intake or doctor-linked activity exists."
+          actionHref={patientAccess.canWriteBasic ? `/app/${workspaceSlug}/patients/new` : undefined}
+          actionLabel={patientAccess.canWriteBasic ? "Register patient" : undefined}
+        />
       ) : (
         <div className="grid gap-4">
           {patients.map((patient) => (
@@ -45,7 +55,7 @@ export default async function PatientsPage({
                 <CardContent className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="font-semibold text-slate-950">{patient.fullName}</p>
-                    <p className="text-sm text-muted-foreground">{patient.patientCode} • {patient.phone}</p>
+                    <p className="text-sm text-muted-foreground">{patient.patientCode} - {patient.phone}</p>
                   </div>
                   <div className="text-sm text-muted-foreground md:text-right">
                     <p>{patient.gender}</p>
@@ -60,4 +70,3 @@ export default async function PatientsPage({
     </div>
   );
 }
-
