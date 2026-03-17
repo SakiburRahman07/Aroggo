@@ -1,8 +1,8 @@
 # OpsPilot Health
 
-OpsPilot Health is a production-style multi-tenant clinic operations SaaS built with Next.js App Router, Prisma/PostgreSQL, Auth.js credentials auth, Supabase Storage, Google Gemini, and Resend.
+OpsPilot Health is a production-style multi-tenant clinic operations SaaS built with Next.js App Router, Prisma/PostgreSQL, Auth.js credentials auth, Supabase Storage, Groq, and Resend.
 
-## What’s Included
+## What's Included
 
 - Multi-tenant clinic workspace model with role-based access control
 - Auth flows for login, signup, invites, forgot password, and reset password
@@ -17,7 +17,7 @@ OpsPilot Health is a production-style multi-tenant clinic operations SaaS built 
 - Prisma ORM + PostgreSQL
 - Auth.js / NextAuth credentials provider with Prisma adapter
 - Supabase Storage for document files
-- Google Gemini via REST API
+- Groq via `groq-sdk`
 - Resend for transactional email
 
 ## Environment
@@ -29,13 +29,40 @@ Copy `.env.example` to `.env` and provide real values for:
 - `NEXTAUTH_URL`
 - `NEXTAUTH_SECRET`
 - `NEXT_PUBLIC_APP_URL`
-- `GOOGLE_API_KEY`
+- `GROQ_API_KEY`
+- `GROQ_MODEL` optional
+- `GROQ_STRUCTURED_MODEL` optional
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_STORAGE_BUCKET`
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
+
+### Groq Notes
+
+The default text model is `meta-llama/llama-4-scout-17b-16e-instruct`.
+Structured extraction uses `GROQ_STRUCTURED_MODEL` when provided, otherwise it falls back to `GROQ_MODEL`.
+
+Operational summaries are cached for 15 minutes, and document uploads now fall back to deterministic summaries if the LLM provider is unavailable or rate-limited.
+
+### Supabase Postgres Notes
+
+If you are using Supabase as your remote PostgreSQL database, use two different connection strings:
+
+- `DATABASE_URL`: Supabase pooled connection string on port `6543`
+- `DIRECT_URL`: Supabase direct connection string on port `5432`
+
+This matters because Prisma Client, the app runtime, and `pnpm prisma:seed` all use `DATABASE_URL`, while Prisma migration workflows use `DIRECT_URL` when available.
+
+If your seed fails with `Can't reach database server at db.<project-ref>.supabase.co:5432`, your machine is trying to use Supabase's direct host for runtime traffic. On some networks that host is unreachable or resolves over IPv6 only. Switch `DATABASE_URL` to the pooled Supabase URI and keep `DIRECT_URL` on the direct host.
+
+You can also do a one-off seed override without changing the app's main runtime configuration:
+
+```powershell
+$env:PRISMA_DATABASE_URL = "<pooled-postgres-uri>"
+pnpm prisma:seed
+```
 
 ## Local Setup
 
@@ -98,4 +125,3 @@ pnpm exec prisma validate
 - Document processing currently supports direct text extraction for plain text, JSON, and PDF uploads.
 - Signed Supabase URLs are used for protected document access.
 - The Prisma schema is validated and the app build passes with the configured environment.
-- If you want a checked-in SQL migration file, run Prisma migrate in an environment where `prisma migrate diff` is permitted; the schema is already ready for it.

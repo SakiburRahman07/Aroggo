@@ -12,14 +12,14 @@ export default async function WorkspaceOverviewPage({ params }: { params: Promis
   const { workspaceSlug } = await params;
   const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "analytics:read");
   const analytics = await getWorkspaceAnalytics(workspace.id);
-  const summary = await generateOperationalSummary(workspace.id, membership.userId);
+  const summary = await generateOperationalSummary(workspace.id, membership.userId, analytics);
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Overview"
         title="Operational command center"
-        description="Monitor today’s clinic throughput, backlog, and AI-assisted work across the workspace."
+        description="Monitor today's clinic throughput, backlog, and AI-assisted work across the workspace."
         actions={
           <Button asChild>
             <Link href={`/app/${workspace.slug}/appointments/new`}>New appointment</Link>
@@ -108,4 +108,3 @@ export default async function WorkspaceOverviewPage({ params }: { params: Promis
     </div>
   );
 }
-

@@ -13,7 +13,7 @@ const credentialsSchema = z.object({
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   session: {
-    strategy: "database"
+    strategy: "jwt"
   },
   pages: {
     signIn: "/login"
@@ -56,10 +56,20 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async session({ session, user }) {
+    async jwt({ token, user }) {
+      if (user) {
+        token.sub = user.id;
+        token.name = user.name;
+        token.email = user.email;
+      }
+
+      return token;
+    },
+    async session({ session, token }) {
       if (session.user) {
-        session.user.id = user.id;
-        session.user.name = session.user.name ?? user.name ?? user.email;
+        session.user.id = token.sub ?? session.user.id;
+        session.user.name = session.user.name ?? token.name ?? token.email ?? undefined;
+        session.user.email = session.user.email ?? token.email ?? undefined;
       }
 
       return session;
@@ -70,4 +80,3 @@ export const authOptions: NextAuthOptions = {
 export function getAuthSession() {
   return getServerSession(authOptions);
 }
-

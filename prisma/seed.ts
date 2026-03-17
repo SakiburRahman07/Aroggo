@@ -1,6 +1,39 @@
 import { hash } from "bcryptjs";
 import { db } from "../lib/db/prisma";
 
+function getSeedConnectionHint() {
+  const activeDatabaseUrl = process.env.PRISMA_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
+
+  if (!activeDatabaseUrl) {
+    return "Set DATABASE_URL, or PRISMA_DATABASE_URL for a seed-only override, to a valid PostgreSQL connection string before running the seed.";
+  }
+
+  try {
+    const parsed = new URL(activeDatabaseUrl);
+    const isSupabaseDirectHost =
+      parsed.hostname.startsWith("db.") &&
+      parsed.hostname.endsWith(".supabase.co") &&
+      (parsed.port === "" || parsed.port === "5432");
+
+    if (isSupabaseDirectHost) {
+      return [
+        "The seed is trying to use Supabase's direct Postgres host on port 5432.",
+        "That host is often unreachable on networks without working IPv6 or where direct Postgres traffic is blocked.",
+        "Set DATABASE_URL to the Supabase pooled connection string on port 6543 for app runtime and seeding.",
+        "Keep DIRECT_URL on the direct Postgres connection string on port 5432 for Prisma migrations.",
+        "If you only want to override the seed without changing the rest of the app, set PRISMA_DATABASE_URL to the pooled URI before running `pnpm prisma:seed`."
+      ].join("\n");
+    }
+  } catch {
+    return "Check DATABASE_URL or PRISMA_DATABASE_URL. It must start with postgresql:// or postgres:// and be URL-encoded if the password contains special characters.";
+  }
+
+  return [
+    "Check that the database host, port, password, and SSL options are correct.",
+    "For Supabase, DATABASE_URL should usually be the pooled URI and DIRECT_URL should stay on the direct URI."
+  ].join("\n");
+}
+
 async function main() {
   const passwordHash = await hash("DemoPass123!", 12);
 
@@ -270,8 +303,16 @@ async function main() {
 }
 
 main()
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error(error);
+
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.includes("Can't reach database server") || message.includes("Error validating datasource")) {
+      console.error("\nSeed connection hint:");
+      console.error(getSeedConnectionHint());
+    }
+
     process.exit(1);
   })
   .finally(async () => {

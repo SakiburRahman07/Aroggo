@@ -6,7 +6,9 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url(),
   NEXTAUTH_SECRET: z.string().min(16),
   NEXT_PUBLIC_APP_URL: z.string().url(),
-  GOOGLE_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().optional(),
+  GROQ_STRUCTURED_MODEL: z.string().optional(),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -21,7 +23,9 @@ const parsed = envSchema.safeParse({
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+  GROQ_API_KEY: process.env.GROQ_API_KEY,
+  GROQ_MODEL: process.env.GROQ_MODEL,
+  GROQ_STRUCTURED_MODEL: process.env.GROQ_STRUCTURED_MODEL,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -35,4 +39,3 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
-

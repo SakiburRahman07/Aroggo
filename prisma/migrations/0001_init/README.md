@@ -1,17 +1,15 @@
-# Initial Migration Placeholder
+# Initial Migration
 
-The Prisma schema for the initial OpsPilot Health release is finalized and validates successfully.
+The initial SQL migration is checked in at `prisma/migrations/0001_init/migration.sql`.
 
-In this environment, `prisma migrate diff --script` hit a process-permission restriction (`spawn EPERM`), so the checked-in `migration.sql` could not be generated automatically.
+Use one of these setup paths:
 
-Generate the initial SQL migration in a normal local shell with:
+- Local PostgreSQL: run `pnpm prisma:migrate --name init`
+- Supabase PostgreSQL: apply `migration.sql` in the Supabase SQL Editor, then run `pnpm prisma:seed`
 
-```bash
-pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0001_init/migration.sql
-```
+If you are using Supabase, prefer this split:
 
-Or create and apply the migration directly with:
+- `DATABASE_URL`: pooled Postgres URI on port `6543`
+- `DIRECT_URL`: direct Postgres URI on port `5432`
 
-```bash
-pnpm prisma:migrate --name init
-```
+That keeps app runtime and seeding on the pooled connection while preserving a direct connection for Prisma migration workflows.

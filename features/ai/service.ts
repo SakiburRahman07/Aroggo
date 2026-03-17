@@ -1,9 +1,63 @@
 import { db } from "@/lib/db/prisma";
-import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/gemini";
+import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
 import { noteTaskSuggestionsSchema } from "@/features/ai/validation";
 import { getWorkspaceAnalytics } from "@/features/analytics/service";
 import { retrieveRelevantChunks } from "@/features/documents/service";
 import { createTasksFromSuggestions } from "@/features/tasks/service";
+
+const OPERATIONAL_SUMMARY_CACHE_WINDOW_MS = 15 * 60 * 1000;
+
+type WorkspaceAnalyticsSnapshot = Awaited<ReturnType<typeof getWorkspaceAnalytics>>;
+
+function pluralize(value: number, singular: string, plural = `${singular}s`) {
+  return value === 1 ? singular : plural;
+}
+
+function buildOperationalSummaryFallback(analytics: WorkspaceAnalyticsSnapshot) {
+  const noShows = analytics.appointmentStatusDistribution.find((item) => item.status === "NO_SHOW")?._count ?? 0;
+  const pendingUploads = analytics.processingDistribution.reduce((total, item) => {
+    return item.processingStatus === "READY" ? total : total + item._count;
+  }, 0);
+  const busiestDoctor = [...analytics.doctorWorkload].sort((left, right) => right.appointmentsToday - left.appointmentsToday)[0];
+  const priorities = [
+    analytics.overdueTasks > 0
+      ? `${analytics.overdueTasks} overdue ${pluralize(analytics.overdueTasks, "task")}`
+      : null,
+    analytics.followUps > 0
+      ? `${analytics.followUps} ${pluralize(analytics.followUps, "follow-up")} due within 7 days`
+      : null,
+    pendingUploads > 0
+      ? `${pendingUploads} uploaded ${pluralize(pendingUploads, "document")} still processing`
+      : null
+  ].filter(Boolean);
+
+  return [
+    `Today shows ${analytics.appointmentsToday} scheduled ${pluralize(analytics.appointmentsToday, "appointment")}.`,
+    priorities.length > 0 ? `Priority focus: ${priorities.join(", ")}.` : "No major operational blockers stand out right now.",
+    noShows > 0 ? `${noShows} ${pluralize(noShows, "no-show")} appear in the current appointment status mix.` : null,
+    busiestDoctor ? `${busiestDoctor.name} has the heaviest booked load today with ${busiestDoctor.appointmentsToday} ${pluralize(busiestDoctor.appointmentsToday, "appointment")}.` : null,
+    `Recent uploads tracked: ${analytics.recentUploads.length}. AI actions recorded today: ${analytics.aiUsage}.`
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function getCachedOperationalSummary(workspaceId: string, createdAfter?: Date) {
+  return db.aIQuery.findFirst({
+    where: {
+      workspaceId,
+      queryType: "OPERATIONAL_SUMMARY",
+      responseSummary: { not: null },
+      ...(createdAfter ? { createdAt: { gte: createdAfter } } : {})
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    select: {
+      responseSummary: true
+    }
+  });
+}
 
 export async function answerGroundedQuestion(params: {
   workspaceId: string;
@@ -146,27 +200,43 @@ export async function confirmMeetingTasks(workspaceId: string, userId: string, a
   return createTasksFromSuggestions(workspaceId, userId, data.tasks);
 }
 
-export async function generateOperationalSummary(workspaceId: string, userId: string) {
-  const analytics = await getWorkspaceAnalytics(workspaceId);
-  const deterministic = `Appointments today: ${analytics.appointmentsToday}. Overdue tasks: ${analytics.overdueTasks}. Follow-up backlog in the next 7 days: ${analytics.followUps}. Recent uploads: ${analytics.recentUploads.length}. AI queries today: ${analytics.aiUsage}.`;
+export async function generateOperationalSummary(
+  workspaceId: string,
+  userId: string,
+  analyticsInput?: WorkspaceAnalyticsSnapshot
+) {
+  const analytics = analyticsInput ?? (await getWorkspaceAnalytics(workspaceId));
+  const fallback = buildOperationalSummaryFallback(analytics);
+  const recentCached = await getCachedOperationalSummary(workspaceId, new Date(Date.now() - OPERATIONAL_SUMMARY_CACHE_WINDOW_MS));
 
-  const result = isAiConfigured()
-    ? await generateText(
-        `Create a concise operations summary for a clinic manager based on the following metrics. Highlight priorities, risks, and pending work. Avoid diagnosis framing.\n\n${JSON.stringify(analytics)}`
-      )
-    : { text: deterministic, usage: null };
+  if (recentCached?.responseSummary) {
+    return recentCached.responseSummary;
+  }
 
-  await db.aIQuery.create({
-    data: {
-      workspaceId,
-      userId,
-      queryType: "OPERATIONAL_SUMMARY",
-      prompt: "Generate operational summary",
-      responseSummary: result.text,
-      tokenUsage: result.usage as never
-    }
-  });
+  if (!isAiConfigured()) {
+    return fallback;
+  }
 
-  return result.text;
+  try {
+    const result = await generateText(
+      `Create a concise operations summary for a clinic manager based on the following metrics. Highlight priorities, risks, pending work, and workload concentration. Keep it to 3 or 4 sentences. Avoid diagnosis framing.\n\n${JSON.stringify(analytics)}`
+    );
+    const summary = result.text.trim() || fallback;
+
+    await db.aIQuery.create({
+      data: {
+        workspaceId,
+        userId,
+        queryType: "OPERATIONAL_SUMMARY",
+        prompt: "Generate operational summary",
+        responseSummary: summary,
+        tokenUsage: result.usage as never
+      }
+    });
+
+    return summary;
+  } catch {
+    const previousSummary = await getCachedOperationalSummary(workspaceId);
+    return previousSummary?.responseSummary ?? fallback;
+  }
 }
-

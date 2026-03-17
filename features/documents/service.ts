@@ -1,7 +1,7 @@
 import pdfParse from "pdf-parse";
 import { db } from "@/lib/db/prisma";
 import { chunkText, scoreChunk } from "@/lib/ai/chunking";
-import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/gemini";
+import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
 import { uploadDocumentBuffer, createSignedDocumentUrl } from "@/lib/storage/supabase";
 import { structuredExtractionSchema, documentUploadSchema } from "@/features/documents/validation";
 
@@ -20,37 +20,49 @@ async function extractTextFromFile(file: File) {
   return "";
 }
 
+function buildDocumentSummaryFallback(title: string, extractedText: string) {
+  return `${title}: ${extractedText.slice(0, 320)}${extractedText.length > 320 ? "..." : ""}`;
+}
+
 async function summarizeDocument(title: string, extractedText: string) {
   if (!extractedText) {
     return null;
   }
 
+  const fallback = buildDocumentSummaryFallback(title, extractedText);
+
   if (!isAiConfigured()) {
-    return `${title}: ${extractedText.slice(0, 320)}${extractedText.length > 320 ? "..." : ""}`;
+    return fallback;
   }
 
-  const result = await generateText(`Summarize the following clinic document for operations and documentation review. Avoid diagnosis framing.\n\nTitle: ${title}\n\n${extractedText}`);
-  return result.text;
+  try {
+    const result = await generateText(
+      `Summarize the following clinic document for operations and documentation review. Avoid diagnosis framing.\n\nTitle: ${title}\n\n${extractedText}`
+    );
+    return result.text || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 async function extractStructuredDataFromText(extractedText: string) {
-  if (!extractedText) {
+  if (!extractedText || !isAiConfigured()) {
     return null;
   }
 
-  if (!isAiConfigured()) {
+  try {
+    const result = await generateStructuredData<{
+      patientName?: string;
+      reportDate?: string;
+      labName?: string;
+      doctorName?: string;
+      tests?: Array<{ name: string; result?: string; abnormal?: boolean }>;
+    }>(`Extract the clinic document metadata and key test data from the content below.\n\n${extractedText}`);
+
+    return structuredExtractionSchema.parse(result.data);
+  } catch {
     return null;
   }
-
-  const result = await generateStructuredData<{
-    patientName?: string;
-    reportDate?: string;
-    labName?: string;
-    doctorName?: string;
-    tests?: Array<{ name: string; result?: string; abnormal?: boolean }>;
-  }>(`Extract the clinic document metadata and key test data from the content below.\n\n${extractedText}`);
-
-  return structuredExtractionSchema.parse(result.data);
 }
 
 export async function listDocuments(workspaceId: string) {
@@ -135,8 +147,10 @@ export async function uploadAndProcessDocument(params: {
   try {
     await uploadDocumentBuffer(storagePath, file);
     const extractedText = await extractTextFromFile(file);
-    const summary = await summarizeDocument(data.title, extractedText);
-    const extractedJson = await extractStructuredDataFromText(extractedText);
+    const [summary, extractedJson] = await Promise.all([
+      summarizeDocument(data.title, extractedText),
+      extractStructuredDataFromText(extractedText)
+    ]);
     const chunks = chunkText(extractedText);
 
     await db.$transaction([
@@ -199,4 +213,3 @@ export async function retrieveRelevantChunks(workspaceId: string, question: stri
     .slice(0, 6)
     .filter((item) => item.relevance > 0 || item.chunkIndex < 2);
 }
-
