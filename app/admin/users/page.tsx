@@ -21,7 +21,7 @@ export default async function AdminUsersPage() {
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {user.memberships.map((membership) => `${membership.workspace.name} (${membership.role})`).join(", ") || "No active memberships"}
+                  {user.memberships.map((membership: PlatformRecentUser["memberships"][number]) => `${membership.workspace.name} (${membership.role})`).join(", ") || "No active memberships"}
                 </p>
               </div>
             </div>
