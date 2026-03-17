@@ -33,3 +33,4 @@ export function EmptyState({ title, description, actionHref, actionLabel }: Empt
     </Card>
   );
 }
+

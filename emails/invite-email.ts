@@ -23,3 +23,4 @@ export function buildInviteEmail({ workspaceName, inviterName, roleLabel, accept
     `
   };
 }
+

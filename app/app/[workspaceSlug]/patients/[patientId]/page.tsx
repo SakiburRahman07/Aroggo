@@ -26,7 +26,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
       <PageHeader
         eyebrow="Patient detail"
         title={patient.fullName}
-        description={`${patient.patientCode} • ${patient.phone}`}
+        description={`${patient.patientCode} â€¢ ${patient.phone}`}
         actions={
           <Button asChild variant="outline">
             <Link href={`/app/${workspaceSlug}/appointments/new?patientId=${patient.id}`}>Book appointment</Link>
@@ -92,7 +92,7 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
               {patient.appointments.map((appointment) => (
                 <Link key={appointment.id} href={`/app/${workspaceSlug}/appointments/${appointment.id}`} className="block rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{appointment.reason}</p>
-                  <p className="text-muted-foreground">{formatDateTime(appointment.scheduledAt)} • {appointment.doctor.profile?.fullName ?? appointment.doctor.email}</p>
+                  <p className="text-muted-foreground">{formatDateTime(appointment.scheduledAt)} â€¢ {appointment.doctor.profile?.fullName ?? appointment.doctor.email}</p>
                 </Link>
               ))}
             </CardContent>
@@ -128,3 +128,4 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     </div>
   );
 }
+

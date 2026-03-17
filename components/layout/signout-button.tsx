@@ -12,3 +12,4 @@ export function SignOutButton() {
     </Button>
   );
 }
+

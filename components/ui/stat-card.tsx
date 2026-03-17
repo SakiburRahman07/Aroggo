@@ -29,3 +29,4 @@ export function StatCard({ label, value, hint, tone = "default" }: StatCardProps
     </div>
   );
 }
+

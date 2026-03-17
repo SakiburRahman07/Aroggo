@@ -13,3 +13,4 @@ export const appointmentSchema = z.object({
 export const appointmentStatusSchema = z.object({
   status: z.nativeEnum(AppointmentStatus)
 });
+

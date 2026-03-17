@@ -45,7 +45,7 @@ export default async function PatientsPage({
                 <CardContent className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="font-semibold text-slate-950">{patient.fullName}</p>
-                    <p className="text-sm text-muted-foreground">{patient.patientCode} • {patient.phone}</p>
+                    <p className="text-sm text-muted-foreground">{patient.patientCode} â€¢ {patient.phone}</p>
                   </div>
                   <div className="text-sm text-muted-foreground md:text-right">
                     <p>{patient.gender}</p>
@@ -60,3 +60,4 @@ export default async function PatientsPage({
     </div>
   );
 }
+

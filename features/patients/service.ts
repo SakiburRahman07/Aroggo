@@ -116,3 +116,4 @@ export async function updatePatient(patientId: string, input: unknown) {
     }
   });
 }
+

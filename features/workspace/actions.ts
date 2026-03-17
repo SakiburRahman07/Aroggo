@@ -50,3 +50,4 @@ export async function updateWorkspaceSettingsAction(workspaceSlug: string, formD
   revalidatePath(`/app/${workspaceSlug}/settings`);
   revalidatePath(`/app/${workspaceSlug}`);
 }
+

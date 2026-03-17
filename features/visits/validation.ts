@@ -8,3 +8,4 @@ export const visitSchema = z.object({
   followUpDate: z.string().optional(),
   status: z.enum(["DRAFT", "COMPLETED"]).default("DRAFT")
 });
+

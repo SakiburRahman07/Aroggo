@@ -46,3 +46,4 @@ export async function markAllNotificationsRead(workspaceId: string, userId: stri
     }
   });
 }
+

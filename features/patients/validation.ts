@@ -11,3 +11,4 @@ export const patientSchema = z.object({
   emergencyContact: z.string().optional(),
   notes: z.string().optional()
 });
+

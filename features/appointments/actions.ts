@@ -64,3 +64,4 @@ export async function openVisitFromAppointmentAction(workspaceSlug: string, appo
   const visit = await ensureVisitForAppointment(workspace.id, appointmentId, doctorUserId, patientId);
   redirect(`/app/${workspaceSlug}/visits/${visit.id}`);
 }
+

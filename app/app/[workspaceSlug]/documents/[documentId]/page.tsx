@@ -19,7 +19,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
       <PageHeader
         eyebrow="Document detail"
         title={document.title}
-        description={`${document.docType.replaceAll("_", " ")} • ${document.patient?.fullName ?? "Workspace document"}`}
+        description={`${document.docType.replaceAll("_", " ")} â€¢ ${document.patient?.fullName ?? "Workspace document"}`}
         actions={
           document.signedUrl ? (
             <Button asChild variant="outline">
@@ -55,3 +55,4 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     </div>
   );
 }
+

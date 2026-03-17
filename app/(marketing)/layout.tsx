@@ -19,3 +19,4 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

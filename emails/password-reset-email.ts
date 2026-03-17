@@ -16,3 +16,4 @@ export function buildPasswordResetEmail({ fullName, resetUrl }: { fullName: stri
     `
   };
 }
+

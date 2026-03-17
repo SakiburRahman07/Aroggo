@@ -30,3 +30,4 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
     </div>
   );
 }
+

@@ -39,7 +39,7 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ w
                   </div>
                   <div className="text-sm text-muted-foreground md:text-right">
                     <p>{formatDateTime(appointment.scheduledAt)}</p>
-                    <p>{appointment.doctor.profile?.fullName ?? appointment.doctor.email} • {appointmentStatusLabels[appointment.status]}</p>
+                    <p>{appointment.doctor.profile?.fullName ?? appointment.doctor.email} â€¢ {appointmentStatusLabels[appointment.status]}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -50,3 +50,4 @@ export default async function AppointmentsPage({ params }: { params: Promise<{ w
     </div>
   );
 }
+

@@ -169,3 +169,4 @@ export async function generateOperationalSummary(workspaceId: string, userId: st
 
   return result.text;
 }
+

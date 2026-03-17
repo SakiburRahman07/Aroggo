@@ -53,3 +53,4 @@ export function ForgotPasswordForm() {
     </form>
   );
 }
+

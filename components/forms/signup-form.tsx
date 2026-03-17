@@ -104,3 +104,4 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
     </form>
   );
 }
+

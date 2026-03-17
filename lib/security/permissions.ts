@@ -125,3 +125,4 @@ export const documentStatusLabels: Record<DocumentProcessingStatus, string> = {
   READY: "Ready",
   FAILED: "Failed"
 };
+

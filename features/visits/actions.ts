@@ -45,3 +45,4 @@ export async function generateVisitDraftAction(workspaceSlug: string, visitId: s
 
   revalidatePath(`/app/${workspaceSlug}/visits/${visitId}`);
 }
+

@@ -105,7 +105,7 @@ export default async function TasksPage({ params }: { params: Promise<{ workspac
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <p className="text-sm text-muted-foreground">Status: {taskStatusLabels[task.status]} {task.dueAt ? `• due ${formatRelativeTime(task.dueAt)}` : ""}</p>
+                      <p className="text-sm text-muted-foreground">Status: {taskStatusLabels[task.status]} {task.dueAt ? `â€¢ due ${formatRelativeTime(task.dueAt)}` : ""}</p>
                       <form action={statusAction} className="flex items-center gap-3">
                         <Select name="status" defaultValue={task.status}>
                           {taskStatusOptions.map((status) => (
@@ -142,3 +142,4 @@ export default async function TasksPage({ params }: { params: Promise<{ workspac
     </div>
   );
 }
+

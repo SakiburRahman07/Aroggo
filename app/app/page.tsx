@@ -11,3 +11,4 @@ export default async function AppEntryPage() {
 
   redirect(`/app/${memberships[0].workspace.slug}`);
 }
+

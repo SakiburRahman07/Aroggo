@@ -138,3 +138,4 @@ export async function ensureVisitForAppointment(workspaceId: string, appointment
     }
   });
 }
+

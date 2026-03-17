@@ -41,3 +41,4 @@ export async function setVisitAiDraft(visitId: string, aiDraft: string) {
     }
   });
 }
+

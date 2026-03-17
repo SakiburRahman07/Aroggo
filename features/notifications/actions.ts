@@ -9,3 +9,4 @@ export async function markAllNotificationsReadAction(workspaceSlug: string) {
   await markAllNotificationsRead(workspace.id, membership.userId);
   revalidatePath(`/app/${workspaceSlug}/notifications`);
 }
+

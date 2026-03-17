@@ -92,3 +92,4 @@ export async function getWorkspaceAnalytics(workspaceId: string) {
     doctorWorkload
   };
 }
+

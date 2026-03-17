@@ -37,3 +37,4 @@ export async function uploadDocumentAction(workspaceSlug: string, formData: Form
   revalidatePath(`/app/${workspaceSlug}/documents`);
   redirect(`/app/${workspaceSlug}/documents/${documentId}`);
 }
+

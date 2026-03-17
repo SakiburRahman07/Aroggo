@@ -124,3 +124,4 @@ export async function updateWorkspaceSettings(workspaceId: string, input: unknow
     }
   });
 }
+

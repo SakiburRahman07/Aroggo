@@ -11,3 +11,4 @@ export const workspaceSettingsSchema = z.object({
   name: z.string().min(2),
   timezone: z.string().min(2)
 });
+

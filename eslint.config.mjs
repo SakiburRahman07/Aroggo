@@ -12,3 +12,4 @@ export default [
   },
   ...compat.extends("next/core-web-vitals")
 ];
+

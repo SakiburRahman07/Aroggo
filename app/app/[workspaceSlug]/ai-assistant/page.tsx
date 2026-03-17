@@ -56,7 +56,7 @@ export default async function AiAssistantPage({
             <form action={askAction} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Ask a question</label>
-                <Textarea name="question" placeholder="What follow-up items appear across this patient’s recent records?" required />
+                <Textarea name="question" placeholder="What follow-up items appear across this patientâ€™s recent records?" required />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Scope to patient (optional)</label>
@@ -104,3 +104,4 @@ export default async function AiAssistantPage({
     </div>
   );
 }
+

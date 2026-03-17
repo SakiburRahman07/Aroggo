@@ -80,3 +80,4 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ wo
     </div>
   );
 }
+

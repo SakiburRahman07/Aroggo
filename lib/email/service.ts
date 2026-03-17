@@ -69,3 +69,4 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown email error" };
   }
 }
+

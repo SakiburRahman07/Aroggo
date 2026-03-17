@@ -70,3 +70,4 @@ export const authOptions: NextAuthOptions = {
 export function getAuthSession() {
   return getServerSession(authOptions);
 }
+

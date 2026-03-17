@@ -109,3 +109,4 @@ export default async function TeamPage({ params }: { params: Promise<{ workspace
     </div>
   );
 }
+

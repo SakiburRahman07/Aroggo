@@ -42,3 +42,4 @@ export async function createSignedDocumentUrl(path: string) {
 
   return data.signedUrl;
 }
+

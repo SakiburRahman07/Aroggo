@@ -19,7 +19,7 @@ export default async function WorkspaceOverviewPage({ params }: { params: Promis
       <PageHeader
         eyebrow="Overview"
         title="Operational command center"
-        description="Monitor today’s clinic throughput, backlog, and AI-assisted work across the workspace."
+        description="Monitor todayâ€™s clinic throughput, backlog, and AI-assisted work across the workspace."
         actions={
           <Button asChild>
             <Link href={`/app/${workspace.slug}/appointments/new`}>New appointment</Link>
@@ -108,3 +108,4 @@ export default async function WorkspaceOverviewPage({ params }: { params: Promis
     </div>
   );
 }
+

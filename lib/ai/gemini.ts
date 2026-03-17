@@ -68,3 +68,4 @@ export async function generateStructuredData<T>(prompt: string) {
     usage: result.usage
   };
 }
+

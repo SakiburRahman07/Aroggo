@@ -87,3 +87,4 @@ export function AppSidebar({ workspace, membership, workspaces }: AppSidebarProp
     </aside>
   );
 }
+

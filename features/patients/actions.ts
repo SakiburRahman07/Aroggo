@@ -55,3 +55,4 @@ export async function updatePatientAction(workspaceSlug: string, patientId: stri
 
   revalidatePath(`/app/${workspaceSlug}/patients/${patientId}`);
 }
+

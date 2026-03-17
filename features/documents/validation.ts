@@ -22,3 +22,4 @@ export const structuredExtractionSchema = z.object({
     )
     .default([])
 });
+

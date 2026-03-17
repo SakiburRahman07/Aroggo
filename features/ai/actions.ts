@@ -60,3 +60,4 @@ export async function confirmMeetingTasksAction(workspaceSlug: string, aiQueryId
   revalidatePath(`/app/${workspaceSlug}/tasks`);
   redirect(`/app/${workspaceSlug}/tasks`);
 }
+

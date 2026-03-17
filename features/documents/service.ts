@@ -199,3 +199,4 @@ export async function retrieveRelevantChunks(workspaceId: string, question: stri
     .slice(0, 6)
     .filter((item) => item.relevance > 0 || item.chunkIndex < 2);
 }
+
