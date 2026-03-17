@@ -1,0 +1,547 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  CLINIC_ADMIN
+  DOCTOR
+  RECEPTIONIST
+  LAB_STAFF
+  OPERATIONS_MANAGER
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNDISCLOSED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum VisitStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum DocumentType {
+  LAB_REPORT
+  PRESCRIPTION
+  IMAGING
+  INSURANCE
+  CONSENT
+  INTERNAL_NOTE
+  SOP
+  OTHER
+}
+
+enum DocumentProcessingStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  INVITE
+  TASK_ASSIGNED
+  TASK_OVERDUE
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_REMINDER
+  DOCUMENT_PROCESSED
+  SYSTEM
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum AIQueryType {
+  DOCUMENT_SUMMARY
+  STRUCTURED_EXTRACTION
+  GROUNDED_QA
+  VISIT_DRAFT
+  NOTE_TO_TASKS
+  OPERATIONAL_SUMMARY
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  INVITE
+  SEND_EMAIL
+  LOGIN
+  PROCESS_DOCUMENT
+  AI_QUERY
+  COMPLETE
+  STATUS_CHANGE
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  name                 String?
+  email                String              @unique
+  emailVerified        DateTime?
+  image                String?
+  passwordHash         String?             @map("password_hash")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  accounts             Account[]
+  aiQueries            AIQuery[]
+  appointmentsAsDoctor Appointment[]       @relation("AppointmentDoctor")
+  appointmentsCreated  Appointment[]       @relation("AppointmentCreator")
+  auditLogs            AuditLog[]          @relation("AuditActor")
+  createdWorkspaces    Workspace[]         @relation("WorkspaceCreator")
+  documentsUploaded    Document[]          @relation("DocumentUploader")
+  invitedMemberships   Membership[]        @relation("MembershipInviter")
+  memberships          Membership[]
+  notifications        Notification[]
+  passwordResetTokens  PasswordResetToken[]
+  patientsCreated      Patient[]           @relation("PatientCreator")
+  profile              Profile?
+  sessions             Session[]
+  taskComments         TaskComment[]
+  tasksAssigned        Task[]              @relation("TaskAssignee")
+  tasksCreated         Task[]              @relation("TaskCreator")
+  visitsAsDoctor       Visit[]             @relation("VisitDoctor")
+  workspaceInvitesSent WorkspaceInvite[]   @relation("WorkspaceInviteSender")
+
+  @@map("users")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  fullName  String   @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  phone     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Workspace {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  timezone       String          @default("Asia/Dhaka")
+  createdById    String          @map("created_by")
+  settingsJson   Json?           @map("settings_json")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  aiQueries      AIQuery[]
+  appointments   Appointment[]
+  auditLogs      AuditLog[]
+  creator        User            @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  departments    Department[]
+  documentChunks DocumentChunk[]
+  documents      Document[]
+  emailLogs      EmailLog[]
+  invites        WorkspaceInvite[]
+  memberships    Membership[]
+  notifications  Notification[]
+  patients       Patient[]
+  tasks          Task[]
+  visits         Visit[]
+
+  @@index([createdById])
+  @@map("workspaces")
+}
+
+model Department {
+  id          String          @id @default(cuid())
+  workspaceId String          @map("workspace_id")
+  name        String
+  description String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  memberships Membership[]
+  invites     WorkspaceInvite[]
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+  @@map("departments")
+}
+
+model Membership {
+  id           String           @id @default(cuid())
+  workspaceId  String           @map("workspace_id")
+  userId       String           @map("user_id")
+  role         Role
+  departmentId String?          @map("department_id")
+  status       MembershipStatus @default(ACTIVE)
+  invitedById  String?          @map("invited_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  department   Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  invitedBy    User?            @relation("MembershipInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, role])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model WorkspaceInvite {
+  id           String       @id @default(cuid())
+  workspaceId  String       @map("workspace_id")
+  email        String
+  token        String       @unique
+  role         Role
+  status       InviteStatus @default(PENDING)
+  invitedById  String       @map("invited_by")
+  departmentId String?      @map("department_id")
+  expiresAt    DateTime     @map("expires_at")
+  acceptedAt   DateTime?    @map("accepted_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  invitedBy    User         @relation("WorkspaceInviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+  @@index([status, expiresAt])
+  @@map("workspace_invites")
+}
+
+model Patient {
+  id               String          @id @default(cuid())
+  workspaceId      String          @map("workspace_id")
+  patientCode      String          @map("patient_code")
+  fullName         String          @map("full_name")
+  dob              DateTime?
+  gender           Gender          @default(UNDISCLOSED)
+  phone            String
+  email            String?
+  address          String?
+  emergencyContact String?         @map("emergency_contact")
+  notes            String?
+  createdById      String          @map("created_by")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  aiQueries        AIQuery[]
+  appointments     Appointment[]
+  createdBy        User            @relation("PatientCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  documents        Document[]
+  documentChunks   DocumentChunk[]
+  tasks            Task[]
+  visits           Visit[]
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, patientCode])
+  @@index([workspaceId, fullName])
+  @@index([workspaceId, phone])
+  @@map("patients")
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  workspaceId     String            @map("workspace_id")
+  patientId       String            @map("patient_id")
+  doctorUserId    String            @map("doctor_user_id")
+  scheduledAt     DateTime          @map("scheduled_at")
+  durationMinutes Int               @default(30) @map("duration_minutes")
+  reason          String
+  status          AppointmentStatus @default(SCHEDULED)
+  notes           String?
+  createdById     String            @map("created_by")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  createdBy       User              @relation("AppointmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  doctor          User              @relation("AppointmentDoctor", fields: [doctorUserId], references: [id], onDelete: Restrict)
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tasks           Task[]
+  visit           Visit?
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, scheduledAt])
+  @@index([workspaceId, doctorUserId, scheduledAt])
+  @@index([patientId])
+  @@map("appointments")
+}
+
+model Visit {
+  id               String      @id @default(cuid())
+  workspaceId      String      @map("workspace_id")
+  patientId        String      @map("patient_id")
+  appointmentId    String?     @unique @map("appointment_id")
+  doctorUserId     String      @map("doctor_user_id")
+  status           VisitStatus @default(DRAFT)
+  symptoms         String?
+  observations     String?
+  diagnosisNote    String?     @map("diagnosis_note")
+  prescriptionText String?     @map("prescription_text")
+  aiDraft          String?     @map("ai_draft")
+  followUpDate     DateTime?   @map("follow_up_date")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  appointment      Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  doctor           User         @relation("VisitDoctor", fields: [doctorUserId], references: [id], onDelete: Restrict)
+  patient          Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  workspace        Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, patientId, createdAt])
+  @@index([workspaceId, doctorUserId])
+  @@map("visits")
+}
+
+model Document {
+  id               String                   @id @default(cuid())
+  workspaceId      String                   @map("workspace_id")
+  patientId        String?                  @map("patient_id")
+  uploadedById     String                   @map("uploaded_by")
+  title            String
+  docType          DocumentType             @map("doc_type")
+  mimeType         String                   @map("mime_type")
+  storagePath      String                   @map("storage_path")
+  processingStatus DocumentProcessingStatus @default(UPLOADED) @map("processing_status")
+  extractedText    String?                  @db.Text @map("extracted_text")
+  summary          String?                  @db.Text
+  extractedJson    Json?                    @map("extracted_json")
+  metadataJson     Json?                    @map("metadata_json")
+  processingError  String?                  @map("processing_error")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  chunks           DocumentChunk[]
+  patient          Patient?                 @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  uploadedBy       User                     @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  workspace        Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, patientId])
+  @@index([workspaceId, processingStatus])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id           String    @id @default(cuid())
+  documentId   String    @map("document_id")
+  workspaceId  String    @map("workspace_id")
+  patientId    String?   @map("patient_id")
+  chunkIndex   Int       @map("chunk_index")
+  content      String    @db.Text
+  embedding    Json?
+  metadataJson Json?     @map("metadata_json")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  patient      Patient?  @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([workspaceId, patientId])
+  @@map("document_chunks")
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  workspaceId    String       @map("workspace_id")
+  patientId      String?      @map("patient_id")
+  appointmentId  String?      @map("appointment_id")
+  title          String
+  description    String?      @db.Text
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  assigneeUserId String?      @map("assignee_user_id")
+  createdById    String       @map("created_by")
+  dueAt          DateTime?    @map("due_at")
+  completedAt    DateTime?    @map("completed_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  assignee       User?        @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  comments       TaskComment[]
+  createdBy      User         @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  patient        Patient?     @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, dueAt])
+  @@index([workspaceId, assigneeUserId])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  workspaceId String           @map("workspace_id")
+  userId      String           @map("user_id")
+  type        NotificationType
+  title       String
+  body        String           @db.Text
+  payloadJson Json?            @map("payload_json")
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([workspaceId, type])
+  @@map("notifications")
+}
+
+model EmailLog {
+  id           String      @id @default(cuid())
+  workspaceId  String?     @map("workspace_id")
+  provider     String
+  templateKey  String      @map("template_key")
+  recipient    String
+  subject      String
+  status       EmailStatus @default(PENDING)
+  errorMessage String?     @map("error_message")
+  sentAt       DateTime?   @map("sent_at")
+  metadataJson Json?       @map("metadata_json")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  workspace    Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([recipient, createdAt])
+  @@map("email_logs")
+}
+
+model AIQuery {
+  id              String      @id @default(cuid())
+  workspaceId     String      @map("workspace_id")
+  userId          String      @map("user_id")
+  patientId       String?     @map("patient_id")
+  queryType       AIQueryType @map("query_type")
+  prompt          String      @db.Text
+  responseSummary String?     @db.Text @map("response_summary")
+  tokenUsage      Json?       @map("token_usage")
+  metadataJson    Json?       @map("metadata_json")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  patient         Patient?    @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, queryType, createdAt])
+  @@index([userId, createdAt])
+  @@map("ai_queries")
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  workspaceId String      @map("workspace_id")
+  actorUserId String      @map("actor_user_id")
+  entityType  String      @map("entity_type")
+  entityId    String      @map("entity_id")
+  action      AuditAction
+  changesJson Json?       @map("changes_json")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  actor       User        @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, entityType, entityId])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
