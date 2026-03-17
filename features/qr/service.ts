@@ -1,7 +1,7 @@
 import { endOfDay, startOfDay } from "date-fns";
 import { type AppointmentStatus, type QrIdentifierType, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
-import { buildAppointmentVisibilityWhere, buildDocumentVisibilityWhere, buildPatientVisibilityWhere, buildTaskVisibilityWhere, buildVisitVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
+import { buildTaskVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { enforceSimpleRateLimit } from "@/lib/security/rate-limit";
 import { PATIENT_PORTAL_ROLE } from "@/lib/security/patient-portal";
 
@@ -80,6 +80,22 @@ function getViewer(role: Role, userId: string): ViewerContext {
 
 function getScanContextRoute(workspaceSlug: string, patientId: string) {
   return `/app/${workspaceSlug}/scan/context/${patientId}?resolvedFrom=qr`;
+}
+
+function shouldAutoRedirectToRecommendedWorkflow(role: Role, context: PatientScanContext) {
+  if (role === "DOCTOR") {
+    return true;
+  }
+
+  if (role === "RECEPTIONIST") {
+    return Boolean(context.activeAppointmentId);
+  }
+
+  if (role === "LAB_STAFF") {
+    return true;
+  }
+
+  return false;
 }
 
 function buildDocumentQueueHref(workspaceSlug: string, patientId: string) {
@@ -300,7 +316,8 @@ export async function buildPatientScanContext(params: BuildPatientScanContextPar
   const [patient, todayAppointments, visits, recentReports, roleRelevantTasks, workspace] = await Promise.all([
     db.patient.findFirst({
       where: {
-        AND: [buildPatientVisibilityWhere(params.workspaceId, viewer), { id: params.patientId }]
+        workspaceId: params.workspaceId,
+        id: params.patientId
       },
       select: {
         id: true,
@@ -311,16 +328,15 @@ export async function buildPatientScanContext(params: BuildPatientScanContextPar
     }),
     db.appointment.findMany({
       where: {
-        AND: [buildAppointmentVisibilityWhere(params.workspaceId, viewer), {
-          patientId: params.patientId,
-          scheduledAt: {
-            gte: startOfDay(new Date()),
-            lte: endOfDay(new Date())
-          },
-          status: {
-            in: ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS"] satisfies AppointmentStatus[]
-          }
-        }]
+        workspaceId: params.workspaceId,
+        patientId: params.patientId,
+        scheduledAt: {
+          gte: startOfDay(new Date()),
+          lte: endOfDay(new Date())
+        },
+        status: {
+          in: ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS"] satisfies AppointmentStatus[]
+        }
       },
       include: {
         doctor: {
@@ -335,7 +351,8 @@ export async function buildPatientScanContext(params: BuildPatientScanContextPar
     }),
     db.visit.findMany({
       where: {
-        AND: [buildVisitVisibilityWhere(params.workspaceId, viewer), { patientId: params.patientId }]
+        workspaceId: params.workspaceId,
+        patientId: params.patientId
       },
       orderBy: [{ createdAt: "desc" }],
       take: 3,
@@ -348,7 +365,8 @@ export async function buildPatientScanContext(params: BuildPatientScanContextPar
     }),
     db.document.findMany({
       where: {
-        AND: [buildDocumentVisibilityWhere(params.workspaceId, viewer, params.patientId), { patientId: params.patientId }]
+        workspaceId: params.workspaceId,
+        patientId: params.patientId
       },
       orderBy: { createdAt: "desc" },
       take: 3,
@@ -639,7 +657,9 @@ export async function resolvePatientQrScan(params: {
     throw new Error("QR_UNAUTHORIZED");
   }
 
-  const redirectTo = getScanContextRoute(qr.patient.workspace.slug, qr.patientId);
+  const redirectTo = shouldAutoRedirectToRecommendedWorkflow(actor.role, context)
+    ? `${context.recommendedWorkflow.href}${context.recommendedWorkflow.href.includes("?") ? "&" : "?"}fromScan=qr`
+    : getScanContextRoute(qr.patient.workspace.slug, qr.patientId);
 
   await db.patientQrIdentifier.update({
     where: { id: qr.id },

@@ -20,6 +20,18 @@ export default async function ScanPage({ params }: { params: Promise<{ publicId:
     redirect(result.redirectTo);
   } catch (error) {
     const message = error instanceof Error ? error.message : "QR_INVALID";
+
+    if (session?.user?.id) {
+      const target = message === "QR_REVOKED"
+        ? "/login?error=revoked"
+        : message === "QR_EXPIRED"
+          ? "/login?error=expired"
+          : message === "QR_UNAUTHORIZED"
+            ? "/login?error=unauthorized"
+            : "/login?error=invalid";
+      redirect(target);
+    }
+
     const target = message === "QR_REVOKED"
       ? "/portal/login?error=revoked"
       : message === "QR_EXPIRED"
