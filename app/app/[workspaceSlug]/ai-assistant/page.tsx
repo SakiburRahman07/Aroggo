@@ -22,7 +22,7 @@ export default async function AiAssistantPage({
   const patients = await listPatientOptions(workspace.id);
   const [query, draft] = await Promise.all([
     queryId
-      ? db.aiQuery.findFirst({
+      ? db.aIQuery.findFirst({
           where: {
             id: queryId,
             workspaceId: workspace.id,
@@ -31,7 +31,7 @@ export default async function AiAssistantPage({
         })
       : null,
     draftId
-      ? db.aiQuery.findFirst({
+      ? db.aIQuery.findFirst({
           where: {
             id: draftId,
             workspaceId: workspace.id,

@@ -43,7 +43,7 @@ export async function getWorkspaceAnalytics(workspaceId: string) {
         where: { workspaceId },
         _count: true
       }),
-      db.aiQuery.count({
+      db.aIQuery.count({
         where: {
           workspaceId,
           createdAt: { gte: todayStart }

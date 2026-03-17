@@ -26,7 +26,7 @@ export async function answerGroundedQuestion(params: {
       )
     : { text: fallback, usage: null };
 
-  const query = await db.aiQuery.create({
+  const query = await db.aIQuery.create({
     data: {
       workspaceId: params.workspaceId,
       userId: params.userId,
@@ -75,7 +75,7 @@ export async function generateVisitDraft(workspaceId: string, userId: string, vi
         usage: null
       };
 
-  await db.aiQuery.create({
+  await db.aIQuery.create({
     data: {
       workspaceId,
       userId,
@@ -113,7 +113,7 @@ export async function generateMeetingTasks(params: {
     : { data: fallback, usage: null };
 
   const normalized = noteTaskSuggestionsSchema.parse(parsed.data);
-  const query = await db.aiQuery.create({
+  const query = await db.aIQuery.create({
     data: {
       workspaceId: params.workspaceId,
       userId: params.userId,
@@ -129,7 +129,7 @@ export async function generateMeetingTasks(params: {
 }
 
 export async function confirmMeetingTasks(workspaceId: string, userId: string, aiQueryId: string) {
-  const query = await db.aiQuery.findFirst({
+  const query = await db.aIQuery.findFirst({
     where: {
       id: aiQueryId,
       workspaceId,
@@ -156,7 +156,7 @@ export async function generateOperationalSummary(workspaceId: string, userId: st
       )
     : { text: deterministic, usage: null };
 
-  await db.aiQuery.create({
+  await db.aIQuery.create({
     data: {
       workspaceId,
       userId,
