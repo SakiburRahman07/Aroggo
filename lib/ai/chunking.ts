@@ -26,7 +26,11 @@ export function chunkText(text: string, size = 1200, overlap = 180): ChunkResult
       metadata: { start, end }
     });
 
-    start = Math.max(end - overlap, end);
+    if (end === normalized.length) {
+      break;
+    }
+
+    start = Math.max(0, end - overlap);
     index += 1;
   }
 
