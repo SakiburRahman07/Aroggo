@@ -1,18 +1,13 @@
-import { addDays, isAfter, isBefore } from "date-fns";
+import { addDays, isBefore } from "date-fns";
 import { hash } from "bcryptjs";
 import { type AppointmentStatus, type QrIdentifierType, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 import { sendTransactionalEmail } from "@/lib/email/service";
-import { enforceSimpleRateLimit } from "@/lib/security/rate-limit";
-import { PATIENT_PORTAL_ROLE } from "@/lib/security/patient-portal";
 import { randomPublicId, randomToken, sha256Hex } from "@/lib/security/tokens";
+import { resolvePatientQrScan as resolveRoleAwarePatientQrScan } from "@/features/qr/service";
 
 const portalBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const PORTAL_INVITE_WINDOW_DAYS = 3;
-
-type ScanActor =
-  | { kind: "patient"; userId: string; workspaceId: string; patientId: string }
-  | { kind: "staff"; userId: string; role: Role; workspaceId: string };
 
 export function buildScanUrl(publicId: string) {
   return `${portalBaseUrl}/scan/${publicId}`;
@@ -22,78 +17,6 @@ function buildPortalInviteUrl(token: string) {
   return `${portalBaseUrl}/portal/activate?token=${token}`;
 }
 
-async function getScanActor(userId: string, workspaceId: string, patientId: string): Promise<ScanActor | null> {
-  const [portalAccount, membership, superAdminMembership] = await Promise.all([
-    db.patientPortalAccount.findFirst({
-      where: {
-        userId,
-        workspaceId,
-        patientId,
-        portalEnabled: true
-      }
-    }),
-    db.membership.findFirst({
-      where: {
-        userId,
-        workspaceId,
-        status: "ACTIVE"
-      }
-    }),
-    db.membership.findFirst({
-      where: {
-        userId,
-        status: "ACTIVE",
-        role: "SUPER_ADMIN"
-      }
-    })
-  ]);
-
-  if (portalAccount) {
-    return { kind: "patient", userId, workspaceId, patientId };
-  }
-
-  if (membership) {
-    return { kind: "staff", userId, role: membership.role, workspaceId };
-  }
-
-  if (superAdminMembership) {
-    return { kind: "staff", userId, role: "SUPER_ADMIN", workspaceId };
-  }
-
-  return null;
-}
-
-async function recordQrLog(params: {
-  workspaceId: string;
-  patientId?: string | null;
-  qrIdentifierId?: string | null;
-  scannerUserId?: string | null;
-  scannerRole: string;
-  qrType: QrIdentifierType;
-  scanContext: string;
-  status: "SUCCESS" | "INVALID" | "EXPIRED" | "REVOKED" | "UNAUTHORIZED" | "RATE_LIMITED";
-  destination?: string | null;
-  ipAddress?: string | null;
-  deviceInfo?: string | null;
-  metadataJson?: Record<string, unknown>;
-}) {
-  return db.qrScanLog.create({
-    data: {
-      workspaceId: params.workspaceId,
-      patientId: params.patientId ?? null,
-      qrIdentifierId: params.qrIdentifierId ?? null,
-      scannerUserId: params.scannerUserId ?? null,
-      scannerRole: params.scannerRole,
-      qrType: params.qrType,
-      scanContext: params.scanContext,
-      status: params.status,
-      destination: params.destination ?? null,
-      ipAddress: params.ipAddress ?? null,
-      deviceInfo: params.deviceInfo ?? null,
-      metadataJson: params.metadataJson as never
-    }
-  });
-}
 
 export async function ensurePermanentPatientQr(workspaceId: string, patientId: string, createdById?: string) {
   const existing = await db.patientQrIdentifier.findFirst({
@@ -492,134 +415,14 @@ export async function markPortalNotificationsRead(workspaceId: string, userId: s
   });
 }
 
-function getStaffScanDestination(role: Role, workspaceSlug: string, patientId: string) {
-  switch (role) {
-    case "RECEPTIONIST":
-      return `/app/${workspaceSlug}/patients/${patientId}?scan=front-desk`;
-    case "DOCTOR":
-      return `/app/${workspaceSlug}/patients/${patientId}?scan=clinical`;
-    case "LAB_STAFF":
-      return `/app/${workspaceSlug}/documents?patientId=${patientId}&scan=lab`;
-    case "OPERATIONS_MANAGER":
-      return `/app/${workspaceSlug}/patients/${patientId}?scan=operations`;
-    case "CLINIC_ADMIN":
-      return `/app/${workspaceSlug}/patients/${patientId}?scan=admin`;
-    case "SUPER_ADMIN":
-      return `/admin/support?patientId=${patientId}&scan=qr`;
-    default:
-      return `/app/${workspaceSlug}/patients/${patientId}`;
-  }
-}
-
 export async function resolvePatientQrScan(params: {
   publicId: string;
   userId?: string | null;
   ipAddress?: string | null;
   deviceInfo?: string | null;
+  intent?: "default" | "check_in" | "visit" | "report_upload" | "patient_summary";
 }) {
-  enforceSimpleRateLimit(`qr:${params.ipAddress ?? "anon"}:${params.publicId}`, 20, 60_000);
-
-  const qr = await db.patientQrIdentifier.findFirst({
-    where: {
-      publicId: params.publicId
-    },
-    include: {
-      patient: {
-        include: {
-          workspace: true
-        }
-      }
-    }
-  });
-
-  if (!qr) {
-    throw new Error("QR_INVALID");
-  }
-
-  if (qr.revokedAt) {
-    await recordQrLog({
-      workspaceId: qr.workspaceId,
-      patientId: qr.patientId,
-      qrIdentifierId: qr.id,
-      scannerUserId: params.userId ?? null,
-      scannerRole: "UNKNOWN",
-      qrType: qr.qrType,
-      scanContext: "scan-page",
-      status: "REVOKED",
-      ipAddress: params.ipAddress,
-      deviceInfo: params.deviceInfo
-    });
-    throw new Error("QR_REVOKED");
-  }
-
-  if (qr.expiresAt && isAfter(new Date(), qr.expiresAt)) {
-    await recordQrLog({
-      workspaceId: qr.workspaceId,
-      patientId: qr.patientId,
-      qrIdentifierId: qr.id,
-      scannerUserId: params.userId ?? null,
-      scannerRole: "UNKNOWN",
-      qrType: qr.qrType,
-      scanContext: "scan-page",
-      status: "EXPIRED",
-      ipAddress: params.ipAddress,
-      deviceInfo: params.deviceInfo
-    });
-    throw new Error("QR_EXPIRED");
-  }
-
-  if (!params.userId) {
-    return {
-      redirectTo: `/portal/login?callbackUrl=${encodeURIComponent(`/scan/${params.publicId}`)}`,
-      kind: "login_required" as const
-    };
-  }
-
-  const actor = await getScanActor(params.userId, qr.workspaceId, qr.patientId);
-
-  if (!actor) {
-    await recordQrLog({
-      workspaceId: qr.workspaceId,
-      patientId: qr.patientId,
-      qrIdentifierId: qr.id,
-      scannerUserId: params.userId,
-      scannerRole: "UNKNOWN",
-      qrType: qr.qrType,
-      scanContext: "scan-page",
-      status: "UNAUTHORIZED",
-      ipAddress: params.ipAddress,
-      deviceInfo: params.deviceInfo
-    });
-    throw new Error("QR_UNAUTHORIZED");
-  }
-
-  const redirectTo = actor.kind === "patient"
-    ? `/portal/check-in?qr=${params.publicId}`
-    : getStaffScanDestination(actor.role, qr.patient.workspace.slug, qr.patientId);
-
-  await db.patientQrIdentifier.update({
-    where: { id: qr.id },
-    data: { lastUsedAt: new Date() }
-  });
-
-  await recordQrLog({
-    workspaceId: qr.workspaceId,
-    patientId: qr.patientId,
-    qrIdentifierId: qr.id,
-    scannerUserId: params.userId,
-    scannerRole: actor.kind === "patient" ? PATIENT_PORTAL_ROLE : actor.role,
-    qrType: qr.qrType,
-    scanContext: "scan-page",
-    status: "SUCCESS",
-    destination: redirectTo,
-    ipAddress: params.ipAddress,
-    deviceInfo: params.deviceInfo
-  });
-
-  return {
-    redirectTo,
-    kind: actor.kind
-  };
+  return resolveRoleAwarePatientQrScan(params);
 }
 
 export async function checkInPatientFromQr(params: {

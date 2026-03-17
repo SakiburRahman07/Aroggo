@@ -15,8 +15,15 @@ import { formatDateTime } from "@/lib/utils";
 
 const documentTypes = ["LAB_REPORT", "PRESCRIPTION", "IMAGING", "INSURANCE", "CONSENT", "INTERNAL_NOTE", "SOP", "OTHER"] as const;
 
-export default async function DocumentsPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
+export default async function DocumentsPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ workspaceSlug: string }>;
+  searchParams: Promise<{ patientId?: string; scan?: string }>;
+}) {
   const { workspaceSlug } = await params;
+  const { patientId: selectedPatientId = "", scan } = await searchParams;
   const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, documentReadPermissions);
   const documentAccess = getScopedDocumentAccess(membership.role);
   const patientAccess = getScopedPatientAccess(membership.role);
@@ -25,14 +32,35 @@ export default async function DocumentsPage({ params }: { params: Promise<{ work
     documentAccess.canUpload && patientAccess.readBasic ? listPatientOptions(workspace.id, viewer) : Promise.resolve([])
   ]);
   const uploadAction = uploadDocumentAction.bind(null, workspaceSlug);
+  const filteredDocuments = selectedPatientId
+    ? documents.filter((document) => document.patient?.id === selectedPatientId)
+    : documents;
+  const selectedPatient = selectedPatientId
+    ? patients.find((patient: PatientOption) => patient.id === selectedPatientId) ?? null
+    : null;
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Documents"
         title={membership.role === "LAB_STAFF" ? "Report workflows" : "Document workflows"}
-        description="Upload, review, and trace workspace documents within the access scope for your role."
+        description={selectedPatient
+          ? `Continuing QR-resolved workflow for ${selectedPatient.fullName}. Uploads and queue items are focused on this patient.`
+          : "Upload, review, and trace workspace documents within the access scope for your role."}
       />
+      {selectedPatient ? (
+        <Card className="border-emerald-200 bg-emerald-50/70">
+          <CardContent className="flex flex-col gap-3 p-5 text-sm text-emerald-900 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-medium">Active patient context</p>
+              <p>{selectedPatient.fullName} is preselected from a secure QR scan{scan ? ` (${scan})` : ""}.</p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/app/${workspaceSlug}/scan/context/${selectedPatient.id}`}>Back to scan context</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
       <div className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
         {documentAccess.canUpload ? (
           <Card>
@@ -56,7 +84,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ work
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700">Linked patient</label>
-                    <Select name="patientId" defaultValue="">
+                    <Select name="patientId" defaultValue={selectedPatientId}>
                       <option value="">Workspace document</option>
                       {patients.map((patient: PatientOption) => (
                         <option key={patient.id} value={patient.id}>{patient.fullName}</option>
@@ -84,10 +112,10 @@ export default async function DocumentsPage({ params }: { params: Promise<{ work
           </Card>
         )}
         <div className="space-y-4">
-          {documents.length === 0 ? (
-            <EmptyState title="No documents yet" description="Documents in your current scope will appear here after uploads are processed." />
+          {filteredDocuments.length === 0 ? (
+            <EmptyState title="No documents yet" description={selectedPatient ? "No documents in your scope are linked to this patient yet." : "Documents in your current scope will appear here after uploads are processed."} />
           ) : (
-            documents.map((document) => (
+            filteredDocuments.map((document) => (
               <Link key={document.id} href={`/app/${workspaceSlug}/documents/${document.id}`}>
                 <Card className="bg-white/90 transition hover:-translate-y-0.5">
                   <CardContent className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">

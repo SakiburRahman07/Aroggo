@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { resolvePatientQrScan } from "@/features/patient-portal/service";
+import { resolvePatientQrScan } from "@/features/qr/service";
 import { getAuthSession } from "@/lib/auth/options";
 
 export default async function ScanPage({ params }: { params: Promise<{ publicId: string }> }) {
