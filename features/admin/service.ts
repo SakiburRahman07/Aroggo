@@ -1,7 +1,45 @@
 import { startOfDay } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 
-export async function getPlatformAdminSnapshot() {
+type WorkspaceHealthBase = Prisma.WorkspaceGetPayload<{
+  include: {
+    creator: {
+      include: { profile: true };
+    };
+    _count: {
+      select: {
+        memberships: true;
+        documents: true;
+        patients: true;
+        appointments: true;
+      };
+    };
+  };
+}>;
+
+export type PlatformWorkspaceHealth = WorkspaceHealthBase & {
+  failedDocs: number;
+  pendingInvites: number;
+  aiQueries: number;
+};
+
+export type PlatformAdminSnapshot = {
+  stats: {
+    workspaceCount: number;
+    activeMemberships: number;
+    pendingDocuments: number;
+    failedDocuments: number;
+    failedEmails: number;
+    aiQueriesToday: number;
+  };
+  workspaceHealth: PlatformWorkspaceHealth[];
+  recentEmails: Awaited<ReturnType<typeof db.emailLog.findMany>>;
+  recentAuditLogs: Awaited<ReturnType<typeof db.auditLog.findMany>>;
+  recentUsers: Awaited<ReturnType<typeof db.user.findMany>>;
+};
+
+export async function getPlatformAdminSnapshot(): Promise<PlatformAdminSnapshot> {
   const todayStart = startOfDay(new Date());
   const [
     workspaceCount,
@@ -59,7 +97,7 @@ export async function getPlatformAdminSnapshot() {
     })
   ]);
 
-  const workspaceHealth = await Promise.all(
+  const workspaceHealth: PlatformWorkspaceHealth[] = await Promise.all(
     workspaceHealthBase.map(async (workspace) => {
       const [failedDocs, pendingInvites, aiQueries] = await Promise.all([
         db.document.count({
