@@ -29,22 +29,31 @@ export async function getUserWorkspaces() {
     include: {
       workspace: true
     },
-    orderBy: [
-      { role: "asc" },
-      { createdAt: "asc" }
-    ]
+    orderBy: [{ role: "asc" }, { createdAt: "asc" }]
   });
 }
 
 export async function resolveAuthenticatedHomeRoute() {
+  const user = await requireUser();
   const memberships = await getUserWorkspaces();
 
-  if (memberships.length === 0) {
-    return "/login";
+  if (memberships.length > 0) {
+    const preferredMembership = memberships.find((membership) => membership.role === "SUPER_ADMIN") ?? memberships[0];
+    return getDefaultDashboardRoute(preferredMembership.role, preferredMembership.workspace.slug);
   }
 
-  const preferredMembership = memberships.find((membership) => membership.role === "SUPER_ADMIN") ?? memberships[0];
-  return getDefaultDashboardRoute(preferredMembership.role, preferredMembership.workspace.slug);
+  const portalAccount = await db.patientPortalAccount.findFirst({
+    where: {
+      userId: user.id,
+      portalEnabled: true
+    }
+  });
+
+  if (portalAccount) {
+    return "/portal";
+  }
+
+  return "/login";
 }
 
 export async function requirePlatformAdmin() {
@@ -112,5 +121,42 @@ export async function requireWorkspaceContext(workspaceSlug: string, permission?
       role: membership.role,
       userId: membership.userId
     }
+  };
+}
+
+export async function requirePatientPortalContext() {
+  const user = await requireUser();
+  const portalAccount = await db.patientPortalAccount.findFirst({
+    where: {
+      userId: user.id,
+      portalEnabled: true
+    },
+    include: {
+      workspace: true,
+      patient: true,
+      user: {
+        include: {
+          profile: true
+        }
+      }
+    }
+  });
+
+  if (!portalAccount) {
+    redirect(await resolveAuthenticatedHomeRoute());
+  }
+
+  await db.patientPortalAccount.update({
+    where: { id: portalAccount.id },
+    data: {
+      lastLoginAt: new Date()
+    }
+  });
+
+  return {
+    user,
+    workspace: portalAccount.workspace,
+    patient: portalAccount.patient,
+    portalAccount
   };
 }

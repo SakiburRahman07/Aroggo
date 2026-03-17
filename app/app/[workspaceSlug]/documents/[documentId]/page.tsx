@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDocumentDetail } from "@/features/documents/service";
+import { releaseDocumentToPatientAction } from "@/features/patient-portal/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -17,6 +18,8 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     return <div className="text-sm text-muted-foreground">Document not found.</div>;
   }
 
+  const releaseAction = releaseDocumentToPatientAction.bind(null, workspaceSlug, documentId, !document.releasedToPatient);
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -24,11 +27,16 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         title={document.title}
         description={`${document.docType.replaceAll("_", " ")} - ${document.patient?.fullName ?? "Workspace document"}`}
         actions={
-          document.signedUrl ? (
-            <Button asChild variant="outline">
-              <Link href={document.signedUrl}>Open file</Link>
-            </Button>
-          ) : undefined
+          <div className="flex gap-3">
+            <form action={releaseAction}>
+              <Button type="submit" variant="outline">{document.releasedToPatient ? "Unrelease from portal" : "Release to portal"}</Button>
+            </form>
+            {document.signedUrl ? (
+              <Button asChild variant="outline">
+                <Link href={document.signedUrl}>Open file</Link>
+              </Button>
+            ) : null}
+          </div>
         }
       />
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -38,6 +46,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-7 text-muted-foreground">
             <p>{document.summary ?? "No summary available yet."}</p>
+            <div className="rounded-2xl bg-teal-50 p-4 text-teal-900">Patient portal state: {document.releasedToPatient ? "Released" : "Internal only"}</div>
             {documentAccess.showStructuredExtraction ? (
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                 <p className="font-medium text-slate-950">Structured extraction</p>

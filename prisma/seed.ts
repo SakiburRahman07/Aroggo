@@ -38,6 +38,12 @@ async function main() {
   const passwordHash = await hash("DemoPass123!", 12);
 
   await db.taskComment.deleteMany();
+  await db.appointmentCheckInEvent.deleteMany();
+  await db.qrScanLog.deleteMany();
+  await db.patientQrIdentifier.deleteMany();
+  await db.patientProfileUpdateRequest.deleteMany();
+  await db.patientPortalInvite.deleteMany();
+  await db.patientPortalAccount.deleteMany();
   await db.task.deleteMany();
   await db.documentChunk.deleteMany();
   await db.document.deleteMany();
@@ -58,7 +64,7 @@ async function main() {
   await db.workspace.deleteMany();
   await db.user.deleteMany();
 
-  const [admin, doctor, receptionist, labStaff, operations] = await Promise.all([
+  const [admin, doctor, receptionist, labStaff, operations, patientPortalUser] = await Promise.all([
     db.user.create({
       data: {
         email: "admin@demo.opspilot.health",
@@ -97,6 +103,14 @@ async function main() {
         name: "Mina Sultana",
         passwordHash,
         profile: { create: { fullName: "Mina Sultana" } }
+      }
+    }),
+    db.user.create({
+      data: {
+        email: "mahin.portal@example.com",
+        name: "Mahin Chowdhury",
+        passwordHash,
+        profile: { create: { fullName: "Mahin Chowdhury" } }
       }
     })
   ]);
@@ -144,6 +158,7 @@ async function main() {
         address: "Dhanmondi, Dhaka",
         emergencyContact: "+8801700000099",
         notes: "Recurring follow-up for blood pressure review.",
+        portalEnabled: true,
         createdById: receptionist.id
       }
     }),
@@ -188,6 +203,11 @@ async function main() {
       symptoms: "Headache and mild dizziness over the last two days.",
       observations: "Blood pressure reading pending confirmation.",
       aiDraft: "Draft visit summary pending clinician review.",
+      patientSummary: "Your blood pressure follow-up was reviewed and no urgent concern was identified.",
+      followUpInstructions: "Continue home monitoring and return for your follow-up in two weeks.",
+      releasedToPatient: true,
+      releasedAt: new Date(),
+      releasedById: doctor.id,
       followUpDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14)
     }
   });
@@ -204,6 +224,9 @@ async function main() {
       processingStatus: "READY",
       extractedText: "CBC panel completed. Hemoglobin stable. WBC slightly elevated. Recommend clinician review with prior report.",
       summary: "CBC report processed and ready for follow-up review.",
+      releasedToPatient: true,
+      releasedAt: new Date(),
+      releasedById: labStaff.id,
       extractedJson: {
         patientName: patientB.fullName,
         labName: "North Avenue Lab",
@@ -259,6 +282,27 @@ async function main() {
     }
   });
 
+  await db.patientPortalAccount.create({
+    data: {
+      patientId: patientA.id,
+      userId: patientPortalUser.id,
+      workspaceId: workspace.id,
+      portalEnabled: true,
+      activatedAt: new Date(),
+      qrPublicId: "demo-qr-public-id"
+    }
+  });
+
+  await db.patientQrIdentifier.create({
+    data: {
+      workspaceId: workspace.id,
+      patientId: patientA.id,
+      publicId: "ptid_demo_mahin",
+      qrType: "PERMANENT_IDENTITY",
+      createdById: receptionist.id
+    }
+  });
+
   await db.notification.createMany({
     data: [
       {
@@ -274,6 +318,13 @@ async function main() {
         type: "DOCUMENT_PROCESSED",
         title: "Document processed",
         body: "CBC Report - March Follow-up is ready for review."
+      },
+      {
+        workspaceId: workspace.id,
+        userId: patientPortalUser.id,
+        type: "APPOINTMENT_REMINDER",
+        title: "Portal ready",
+        body: "Your patient portal is active and your appointment is still confirmed."
       }
     ]
   });
@@ -300,6 +351,7 @@ async function main() {
 
   console.log("Seed complete.");
   console.log("Demo admin login: admin@demo.opspilot.health / DemoPass123!");
+  console.log("Demo patient portal login: mahin.portal@example.com / DemoPass123!");
 }
 
 main()

@@ -102,6 +102,43 @@ enum EmailStatus {
   FAILED
 }
 
+enum PatientPortalInviteStatus {
+  PENDING
+  ACTIVATED
+  EXPIRED
+  REVOKED
+}
+
+enum QrIdentifierType {
+  PERMANENT_IDENTITY
+  SELF_CHECK_IN
+  PORTAL_ACTIVATION
+  APPOINTMENT_CONFIRMATION
+  REPORT_ACCESS
+}
+
+enum QrScanStatus {
+  SUCCESS
+  INVALID
+  EXPIRED
+  REVOKED
+  UNAUTHORIZED
+  RATE_LIMITED
+}
+
+enum CheckInSource {
+  STAFF_QR
+  PATIENT_QR
+  KIOSK
+  MANUAL
+}
+
+enum ProfileUpdateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum AIQueryType {
   DOCUMENT_SUMMARY
   STRUCTURED_EXTRACTION
@@ -143,6 +180,12 @@ model User {
   invitedMemberships   Membership[]        @relation("MembershipInviter")
   memberships          Membership[]
   notifications        Notification[]
+  patientPortalAccount PatientPortalAccount?
+  patientPortalInvites PatientPortalInvite[] @relation("PatientPortalInviteSender")
+  qrIdentifiersCreated PatientQrIdentifier[] @relation("PatientQrCreatedBy")
+  qrScans             QrScanLog[] @relation("QrScannerUser")
+  releasedDocuments   Document[] @relation("DocumentReleasedBy")
+  releasedVisits      Visit[] @relation("VisitReleasedBy")
   passwordResetTokens  PasswordResetToken[]
   patientsCreated      Patient[]           @relation("PatientCreator")
   profile              Profile?
@@ -189,6 +232,12 @@ model Workspace {
   invites        WorkspaceInvite[]
   memberships    Membership[]
   notifications  Notification[]
+  patientPortalAccounts PatientPortalAccount[]
+  patientPortalInvites PatientPortalInvite[]
+  qrIdentifiers  PatientQrIdentifier[]
+  qrScanLogs     QrScanLog[]
+  checkInEvents  AppointmentCheckInEvent[]
+  profileUpdateRequests PatientProfileUpdateRequest[]
   patients       Patient[]
   tasks          Task[]
   visits         Visit[]
@@ -266,6 +315,7 @@ model Patient {
   address          String?
   emergencyContact String?         @map("emergency_contact")
   notes            String?
+  portalEnabled    Boolean         @default(false) @map("portal_enabled")
   createdById      String          @map("created_by")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
@@ -276,12 +326,145 @@ model Patient {
   documentChunks   DocumentChunk[]
   tasks            Task[]
   visits           Visit[]
+  portalAccount    PatientPortalAccount?
+  portalInvites    PatientPortalInvite[]
+  qrIdentifiers    PatientQrIdentifier[]
+  qrScans          QrScanLog[]
+  checkInEvents    AppointmentCheckInEvent[]
+  profileUpdateRequests PatientProfileUpdateRequest[]
   workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, patientCode])
   @@index([workspaceId, fullName])
   @@index([workspaceId, phone])
   @@map("patients")
+}
+
+
+model PatientPortalAccount {
+  id                 String    @id @default(cuid())
+  patientId          String    @unique @map("patient_id")
+  userId             String    @unique @map("user_id")
+  workspaceId        String    @map("workspace_id")
+  portalEnabled      Boolean   @default(true) @map("portal_enabled")
+  activatedAt        DateTime? @map("activated_at")
+  lastLoginAt        DateTime? @map("last_login_at")
+  lastQrIssuedAt     DateTime? @map("last_qr_issued_at")
+  qrPublicId         String?   @unique @map("qr_public_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  patient            Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, portalEnabled])
+  @@map("patient_portal_accounts")
+}
+
+model PatientPortalInvite {
+  id          String                    @id @default(cuid())
+  workspaceId String                    @map("workspace_id")
+  patientId   String                    @map("patient_id")
+  email       String
+  tokenHash   String                    @unique @map("token_hash")
+  status      PatientPortalInviteStatus @default(PENDING)
+  invitedById String                    @map("invited_by")
+  expiresAt   DateTime                  @map("expires_at")
+  activatedAt DateTime?                 @map("activated_at")
+  createdAt   DateTime                  @default(now()) @map("created_at")
+  updatedAt   DateTime                  @updatedAt @map("updated_at")
+  invitedBy   User                      @relation("PatientPortalInviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  patient     Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, patientId, status])
+  @@index([email, expiresAt])
+  @@map("patient_portal_invites")
+}
+
+model PatientQrIdentifier {
+  id               String           @id @default(cuid())
+  workspaceId      String           @map("workspace_id")
+  patientId        String           @map("patient_id")
+  publicId         String           @unique @map("public_id")
+  qrType           QrIdentifierType @map("qr_type")
+  tokenHash        String?          @map("token_hash")
+  actionPayloadJson Json?           @map("action_payload_json")
+  expiresAt        DateTime?        @map("expires_at")
+  lastUsedAt       DateTime?        @map("last_used_at")
+  revokedAt        DateTime?        @map("revoked_at")
+  createdById      String?          @map("created_by")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  patient          Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdBy        User?            @relation("PatientQrCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  scans            QrScanLog[]
+
+  @@index([workspaceId, patientId, qrType])
+  @@index([publicId, revokedAt])
+  @@map("patient_qr_identifiers")
+}
+
+model QrScanLog {
+  id             String           @id @default(cuid())
+  workspaceId    String           @map("workspace_id")
+  patientId      String?          @map("patient_id")
+  qrIdentifierId String?          @map("qr_identifier_id")
+  scannerUserId  String?          @map("scanner_user_id")
+  scannerRole    String           @map("scanner_role")
+  qrType         QrIdentifierType @map("qr_type")
+  scanContext    String           @map("scan_context")
+  status         QrScanStatus
+  destination    String?          @map("destination")
+  ipAddress      String?          @map("ip_address")
+  deviceInfo     String?          @map("device_info")
+  metadataJson   Json?            @map("metadata_json")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  patient        Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  qrIdentifier   PatientQrIdentifier? @relation(fields: [qrIdentifierId], references: [id], onDelete: SetNull)
+  scannerUser    User?            @relation("QrScannerUser", fields: [scannerUserId], references: [id], onDelete: SetNull)
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([patientId, createdAt])
+  @@map("qr_scan_logs")
+}
+
+model AppointmentCheckInEvent {
+  id            String        @id @default(cuid())
+  workspaceId    String        @map("workspace_id")
+  appointmentId  String        @map("appointment_id")
+  patientId      String        @map("patient_id")
+  source         CheckInSource
+  scannerUserId  String?       @map("scanner_user_id")
+  checkedInAt    DateTime      @default(now()) @map("checked_in_at")
+  metadataJson   Json?         @map("metadata_json")
+  appointment    Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, checkedInAt])
+  @@index([appointmentId, checkedInAt])
+  @@map("appointment_check_in_events")
+}
+
+model PatientProfileUpdateRequest {
+  id                  String              @id @default(cuid())
+  workspaceId         String              @map("workspace_id")
+  patientId           String              @map("patient_id")
+  requestedByUserId   String?             @map("requested_by_user_id")
+  status              ProfileUpdateStatus @default(PENDING)
+  requestedChangesJson Json               @map("requested_changes_json")
+  reviewedById        String?             @map("reviewed_by")
+  reviewedAt          DateTime?           @map("reviewed_at")
+  notes               String?
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  patient             Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  workspace           Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, patientId, status])
+  @@map("patient_profile_update_requests")
 }
 
 model Appointment {
@@ -302,6 +485,7 @@ model Appointment {
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   tasks           Task[]
   visit           Visit?
+  checkInEvents   AppointmentCheckInEvent[]
   workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, scheduledAt])
@@ -322,16 +506,23 @@ model Visit {
   diagnosisNote    String?     @map("diagnosis_note")
   prescriptionText String?     @map("prescription_text")
   aiDraft          String?     @map("ai_draft")
+  patientSummary   String?     @db.Text @map("patient_summary")
+  followUpInstructions String? @db.Text @map("follow_up_instructions")
+  releasedToPatient Boolean    @default(false) @map("released_to_patient")
+  releasedAt       DateTime?   @map("released_at")
+  releasedById     String?     @map("released_by")
   followUpDate     DateTime?   @map("follow_up_date")
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
   appointment      Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   doctor           User         @relation("VisitDoctor", fields: [doctorUserId], references: [id], onDelete: Restrict)
   patient          Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  releasedBy       User?        @relation("VisitReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
   workspace        Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, patientId, createdAt])
   @@index([workspaceId, doctorUserId])
+  @@index([workspaceId, releasedToPatient, releasedAt])
   @@map("visits")
 }
 
@@ -347,6 +538,9 @@ model Document {
   processingStatus DocumentProcessingStatus @default(UPLOADED) @map("processing_status")
   extractedText    String?                  @db.Text @map("extracted_text")
   summary          String?                  @db.Text
+  releasedToPatient Boolean                 @default(false) @map("released_to_patient")
+  releasedAt       DateTime?                @map("released_at")
+  releasedById     String?                  @map("released_by")
   extractedJson    Json?                    @map("extracted_json")
   metadataJson     Json?                    @map("metadata_json")
   processingError  String?                  @map("processing_error")
@@ -354,11 +548,13 @@ model Document {
   updatedAt        DateTime                 @updatedAt @map("updated_at")
   chunks           DocumentChunk[]
   patient          Patient?                 @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  releasedBy       User?                    @relation("DocumentReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
   uploadedBy       User                     @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
   workspace        Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, patientId])
   @@index([workspaceId, processingStatus])
+  @@index([workspaceId, releasedToPatient, releasedAt])
   @@map("documents")
 }
 

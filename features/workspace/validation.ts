@@ -9,6 +9,8 @@ export const inviteMemberSchema = z.object({
 
 export const workspaceSettingsSchema = z.object({
   name: z.string().min(2),
-  timezone: z.string().min(2)
+  timezone: z.string().min(2),
+  patientPortalEnabled: z.boolean().default(true),
+  qrEnabled: z.boolean().default(true),
+  kioskModeEnabled: z.boolean().default(false)
 });
-

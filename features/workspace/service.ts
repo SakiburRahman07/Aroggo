@@ -123,12 +123,22 @@ export async function createWorkspaceInvite(params: {
 
 export async function updateWorkspaceSettings(workspaceId: string, input: unknown) {
   const data = workspaceSettingsSchema.parse(input);
+  const current = await db.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { settingsJson: true }
+  });
 
   return db.workspace.update({
     where: { id: workspaceId },
     data: {
       name: data.name,
-      timezone: data.timezone
+      timezone: data.timezone,
+      settingsJson: {
+        ...(typeof current?.settingsJson === "object" && current.settingsJson ? current.settingsJson as Record<string, unknown> : {}),
+        patientPortalEnabled: data.patientPortalEnabled,
+        qrEnabled: data.qrEnabled,
+        kioskModeEnabled: data.kioskModeEnabled
+      } as never
     }
   });
 }

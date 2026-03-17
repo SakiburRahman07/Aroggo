@@ -26,9 +26,14 @@ export default async function LabDashboardPage({ params }: { params: Promise<{ w
         title="Report intake and processing"
         description="Monitor report uploads, processing health, AI extraction readiness, and lab-specific task flow."
         actions={
-          <Button asChild>
-            <Link href={`/app/${workspaceSlug}/documents`}>Open report queue</Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button asChild>
+              <Link href={`/app/${workspaceSlug}/documents`}>Open report queue</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/app/${workspaceSlug}/scan`}>Scan patient QR</Link>
+            </Button>
+          </div>
         }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

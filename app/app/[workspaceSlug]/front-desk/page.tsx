@@ -33,6 +33,9 @@ export default async function FrontDeskDashboardPage({ params }: { params: Promi
             <Button asChild variant="outline">
               <Link href={`/app/${workspaceSlug}/appointments/new`}>Book appointment</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href={`/app/${workspaceSlug}/scan`}>Scan QR</Link>
+            </Button>
           </div>
         }
       />

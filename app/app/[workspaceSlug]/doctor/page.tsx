@@ -26,9 +26,14 @@ export default async function DoctorDashboardPage({ params }: { params: Promise<
         title="My clinical operations dashboard"
         description="Stay on top of your schedule, follow-ups, reports, and documentation tasks without leaving the patient workflow."
         actions={
-          <Button asChild>
-            <Link href={`/app/${workspaceSlug}/appointments`}>Open my schedule</Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button asChild>
+              <Link href={`/app/${workspaceSlug}/appointments`}>Open my schedule</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/app/${workspaceSlug}/scan`}>Scan patient ID</Link>
+            </Button>
+          </div>
         }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

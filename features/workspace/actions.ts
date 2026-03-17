@@ -36,7 +36,10 @@ export async function updateWorkspaceSettingsAction(workspaceSlug: string, formD
 
   await updateWorkspaceSettings(workspace.id, {
     name: formData.get("name"),
-    timezone: formData.get("timezone")
+    timezone: formData.get("timezone"),
+    patientPortalEnabled: formData.get("patientPortalEnabled") === "on",
+    qrEnabled: formData.get("qrEnabled") === "on",
+    kioskModeEnabled: formData.get("kioskModeEnabled") === "on"
   });
 
   await recordAuditLog({
