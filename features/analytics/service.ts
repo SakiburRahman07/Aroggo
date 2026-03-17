@@ -1,7 +1,27 @@
 import { startOfDay, endOfDay, addDays } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 
-export async function getWorkspaceAnalytics(workspaceId: string) {
+export type AnalyticsAppointmentStatusItem = Prisma.PromiseReturnType<typeof db.appointment.groupBy>[number];
+export type AnalyticsProcessingStatusItem = Prisma.PromiseReturnType<typeof db.document.groupBy>[number];
+export type AnalyticsDoctorWorkloadItem = {
+  doctorId: string;
+  name: string;
+  appointmentsToday: number;
+};
+
+export type WorkspaceAnalyticsSnapshot = {
+  appointmentsToday: number;
+  appointmentStatusDistribution: AnalyticsAppointmentStatusItem[];
+  overdueTasks: number;
+  followUps: number;
+  recentUploads: Awaited<ReturnType<typeof db.document.findMany>>;
+  processingDistribution: AnalyticsProcessingStatusItem[];
+  aiUsage: number;
+  doctorWorkload: AnalyticsDoctorWorkloadItem[];
+};
+
+export async function getWorkspaceAnalytics(workspaceId: string): Promise<WorkspaceAnalyticsSnapshot> {
   const now = new Date();
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
@@ -63,7 +83,7 @@ export async function getWorkspaceAnalytics(workspaceId: string) {
       })
     ]);
 
-  const doctorWorkload = await Promise.all(
+  const doctorWorkload: AnalyticsDoctorWorkloadItem[] = await Promise.all(
     doctors.map(async (membership) => {
       const upcomingAppointments = await db.appointment.count({
         where: {
@@ -92,4 +112,3 @@ export async function getWorkspaceAnalytics(workspaceId: string) {
     doctorWorkload
   };
 }
-

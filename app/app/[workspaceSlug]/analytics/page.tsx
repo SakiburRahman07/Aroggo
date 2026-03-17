@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
-import { getWorkspaceAnalytics } from "@/features/analytics/service";
+import { getWorkspaceAnalytics, type AnalyticsDoctorWorkloadItem, type AnalyticsProcessingStatusItem } from "@/features/analytics/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { analyticsReadPermissions } from "@/lib/security/permissions";
 
@@ -25,7 +25,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ work
             <CardTitle>Document processing</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            {analytics.processingDistribution.map((item) => (
+            {analytics.processingDistribution.map((item: AnalyticsProcessingStatusItem) => (
               <div key={item.processingStatus} className="rounded-2xl border border-border/70 p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-950">{item.processingStatus}</span>
@@ -40,7 +40,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ work
             <CardTitle>Doctor workload</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            {analytics.doctorWorkload.map((doctor) => (
+            {analytics.doctorWorkload.map((doctor: AnalyticsDoctorWorkloadItem) => (
               <div key={doctor.doctorId} className="rounded-2xl border border-border/70 p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-950">{doctor.name}</span>
