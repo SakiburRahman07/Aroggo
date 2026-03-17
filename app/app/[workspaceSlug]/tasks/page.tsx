@@ -1,5 +1,5 @@
 import { addTaskCommentAction, createTaskAction, updateTaskStatusAction } from "@/features/tasks/actions";
-import { listPatientOptions } from "@/features/patients/service";
+import { listPatientOptions, type PatientOption } from "@/features/patients/service";
 import { listTasks } from "@/features/tasks/service";
 import { listWorkspaceStaff } from "@/features/workspace/service";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ export default async function TasksPage({ params }: { params: Promise<{ workspac
                     <label className="text-sm font-medium text-slate-700">Linked patient</label>
                     <Select name="patientId" defaultValue="">
                       <option value="">None</option>
-                      {patients.map((patient) => (
+                      {patients.map((patient: PatientOption) => (
                         <option key={patient.id} value={patient.id}>{patient.fullName}</option>
                       ))}
                     </Select>

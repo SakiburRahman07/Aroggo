@@ -1,7 +1,10 @@
 import { addDays, endOfDay, startOfDay, subDays } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 import { buildPatientVisibilityWhere, buildTaskVisibilityWhere } from "@/lib/security/scopes";
 import { getWorkspaceAnalytics } from "@/features/analytics/service";
+
+export type ReceptionRecentPatient = Prisma.PatientGetPayload<Record<string, never>>;
 
 export async function getClinicAdminDashboard(workspaceId: string) {
   const now = new Date();
@@ -205,7 +208,7 @@ export async function getReceptionDashboard(workspaceId: string, userId: string)
     checkedInToday,
     noShowsLastWeek,
     reminderQueue,
-    recentPatients,
+    recentPatients: recentPatients as ReceptionRecentPatient[],
     frontDeskTasks
   };
 }

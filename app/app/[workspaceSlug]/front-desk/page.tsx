@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { getReceptionDashboard } from "@/features/dashboard/service";
+import { getReceptionDashboard, type ReceptionRecentPatient } from "@/features/dashboard/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { getDefaultDashboardRoute } from "@/lib/security/navigation";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils";
@@ -84,7 +84,7 @@ export default async function FrontDeskDashboardPage({ params }: { params: Promi
               <CardTitle>Recent registrations</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {dashboard.recentPatients.map((patient) => (
+              {dashboard.recentPatients.map((patient: ReceptionRecentPatient) => (
                 <Link key={patient.id} href={`/app/${workspaceSlug}/patients/${patient.id}`} className="block rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{patient.fullName}</p>
                   <p className="text-muted-foreground">{patient.phone}</p>

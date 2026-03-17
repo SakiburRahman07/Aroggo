@@ -1,5 +1,5 @@
 import { askGroundedQuestionAction, confirmMeetingTasksAction, generateMeetingTasksAction } from "@/features/ai/actions";
-import { listPatientOptions } from "@/features/patients/service";
+import { listPatientOptions, type PatientOption } from "@/features/patients/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -64,7 +64,7 @@ export default async function AiAssistantPage({
                 <label className="text-sm font-medium text-slate-700">Scope to patient (optional)</label>
                 <Select name="patientId" defaultValue="">
                   <option value="">Entire workspace</option>
-                  {patients.map((patient) => (
+                  {patients.map((patient: PatientOption) => (
                     <option key={patient.id} value={patient.id}>{patient.fullName}</option>
                   ))}
                 </Select>

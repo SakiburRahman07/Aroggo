@@ -12,13 +12,23 @@ import {
   type ViewerContext
 } from "@/lib/security/scopes";
 import { patientSchema } from "@/features/patients/validation";
+import type { Prisma } from "@prisma/client";
+
+export type PatientListItem = Prisma.PatientGetPayload<Record<string, never>>;
+export type PatientOption = Prisma.PatientGetPayload<{
+  select: {
+    id: true;
+    fullName: true;
+    patientCode: true;
+  };
+}>;
 
 async function generatePatientCode(workspaceId: string) {
   const total = await db.patient.count({ where: { workspaceId } });
   return `PAT-${String(total + 1).padStart(5, "0")}`;
 }
 
-export async function listPatients(workspaceId: string, viewer: ViewerContext, search?: string) {
+export async function listPatients(workspaceId: string, viewer: ViewerContext, search?: string): Promise<PatientListItem[]> {
   return db.patient.findMany({
     where: buildPatientVisibilityWhere(workspaceId, viewer, search),
     orderBy: {
@@ -27,7 +37,7 @@ export async function listPatients(workspaceId: string, viewer: ViewerContext, s
   });
 }
 
-export async function listPatientOptions(workspaceId: string, viewer: ViewerContext) {
+export async function listPatientOptions(workspaceId: string, viewer: ViewerContext): Promise<PatientOption[]> {
   return db.patient.findMany({
     where: buildPatientVisibilityWhere(workspaceId, viewer),
     select: {

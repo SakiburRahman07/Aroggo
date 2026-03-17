@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { listPatients } from "@/features/patients/service";
+import { listPatients, type PatientListItem } from "@/features/patients/service";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { patientReadPermissions, roleLabels } from "@/lib/security/permissions";
 import { getScopedPatientAccess } from "@/lib/security/scopes";
@@ -49,7 +49,7 @@ export default async function PatientsPage({
         />
       ) : (
         <div className="grid gap-4">
-          {patients.map((patient) => (
+          {patients.map((patient: PatientListItem) => (
             <Link key={patient.id} href={`/app/${workspaceSlug}/patients/${patient.id}`}>
               <Card className="bg-white/90 transition hover:-translate-y-0.5">
                 <CardContent className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">

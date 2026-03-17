@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { uploadDocumentAction } from "@/features/documents/actions";
 import { listDocuments } from "@/features/documents/service";
-import { listPatientOptions } from "@/features/patients/service";
+import { listPatientOptions, type PatientOption } from "@/features/patients/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -58,7 +58,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ work
                     <label className="text-sm font-medium text-slate-700">Linked patient</label>
                     <Select name="patientId" defaultValue="">
                       <option value="">Workspace document</option>
-                      {patients.map((patient) => (
+                      {patients.map((patient: PatientOption) => (
                         <option key={patient.id} value={patient.id}>{patient.fullName}</option>
                       ))}
                     </Select>
