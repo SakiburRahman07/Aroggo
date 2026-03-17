@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { getPlatformAdminSnapshot } from "@/features/admin/service";
+import { getPlatformAdminSnapshot, type PlatformRecentAuditLog, type PlatformRecentEmail, type PlatformWorkspaceHealth } from "@/features/admin/service";
 import { formatRelativeTime } from "@/lib/utils";
 
 export default async function AdminOverviewPage() {
@@ -28,7 +28,7 @@ export default async function AdminOverviewPage() {
             <CardTitle>Workspace health</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {snapshot.workspaceHealth.map((workspace) => (
+            {snapshot.workspaceHealth.map((workspace: PlatformWorkspaceHealth) => (
               <div key={workspace.id} className="rounded-2xl border border-border/70 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -55,7 +55,7 @@ export default async function AdminOverviewPage() {
               <CardTitle>Recent email activity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {snapshot.recentEmails.map((email) => (
+              {snapshot.recentEmails.map((email: PlatformRecentEmail) => (
                 <div key={email.id} className="rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{email.subject}</p>
                   <p className="text-muted-foreground">{email.recipient}</p>
@@ -69,7 +69,7 @@ export default async function AdminOverviewPage() {
               <CardTitle>Recent audit activity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {snapshot.recentAuditLogs.map((log) => (
+              {snapshot.recentAuditLogs.map((log: PlatformRecentAuditLog) => (
                 <div key={log.id} className="rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{log.entityType} - {log.action}</p>
                   <p className="text-muted-foreground">{formatRelativeTime(log.createdAt)}</p>

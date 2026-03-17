@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { getPlatformAdminSnapshot } from "@/features/admin/service";
+import { getPlatformAdminSnapshot, type PlatformRecentEmail } from "@/features/admin/service";
 
 export default async function AdminEmailPage() {
   const snapshot = await getPlatformAdminSnapshot();
@@ -13,7 +13,7 @@ export default async function AdminEmailPage() {
           <CardTitle>Recent email delivery attempts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          {snapshot.recentEmails.map((email) => (
+          {snapshot.recentEmails.map((email: PlatformRecentEmail) => (
             <div key={email.id} className="rounded-2xl border border-border/70 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>

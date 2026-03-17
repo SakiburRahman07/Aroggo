@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { getPlatformAdminSnapshot } from "@/features/admin/service";
+import { getPlatformAdminSnapshot, type PlatformWorkspaceHealth } from "@/features/admin/service";
 
 export default async function AdminWorkspacesPage() {
   const snapshot = await getPlatformAdminSnapshot();
@@ -13,7 +13,7 @@ export default async function AdminWorkspacesPage() {
           <CardTitle>Workspace inventory</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {snapshot.workspaceHealth.map((workspace) => (
+          {snapshot.workspaceHealth.map((workspace: PlatformWorkspaceHealth) => (
             <div key={workspace.id} className="rounded-2xl border border-border/70 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>

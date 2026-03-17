@@ -18,11 +18,25 @@ type WorkspaceHealthBase = Prisma.WorkspaceGetPayload<{
   };
 }>;
 
+type RecentUser = Prisma.UserGetPayload<{
+  include: {
+    profile: true;
+    memberships: {
+      where: { status: "ACTIVE" };
+      include: { workspace: true };
+    };
+  };
+}>;
+
 export type PlatformWorkspaceHealth = WorkspaceHealthBase & {
   failedDocs: number;
   pendingInvites: number;
   aiQueries: number;
 };
+
+export type PlatformRecentEmail = Prisma.EmailLogGetPayload<Record<string, never>>;
+export type PlatformRecentAuditLog = Prisma.AuditLogGetPayload<Record<string, never>>;
+export type PlatformRecentUser = RecentUser;
 
 export type PlatformAdminSnapshot = {
   stats: {
@@ -34,9 +48,9 @@ export type PlatformAdminSnapshot = {
     aiQueriesToday: number;
   };
   workspaceHealth: PlatformWorkspaceHealth[];
-  recentEmails: Awaited<ReturnType<typeof db.emailLog.findMany>>;
-  recentAuditLogs: Awaited<ReturnType<typeof db.auditLog.findMany>>;
-  recentUsers: Awaited<ReturnType<typeof db.user.findMany>>;
+  recentEmails: PlatformRecentEmail[];
+  recentAuditLogs: PlatformRecentAuditLog[];
+  recentUsers: PlatformRecentUser[];
 };
 
 export async function getPlatformAdminSnapshot(): Promise<PlatformAdminSnapshot> {

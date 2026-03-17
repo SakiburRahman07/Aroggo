@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { getPlatformAdminSnapshot } from "@/features/admin/service";
+import { getPlatformAdminSnapshot, type PlatformRecentEmail, type PlatformWorkspaceHealth } from "@/features/admin/service";
 
 export default async function AdminSupportPage() {
   const snapshot = await getPlatformAdminSnapshot();
-  const failedEmailItems = snapshot.recentEmails.filter((email) => email.status === "FAILED");
+  const failedEmailItems = snapshot.recentEmails.filter((email: PlatformRecentEmail) => email.status === "FAILED");
 
   return (
     <div className="space-y-8">
@@ -15,7 +15,7 @@ export default async function AdminSupportPage() {
             <CardTitle>Workspaces needing attention</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            {snapshot.workspaceHealth.map((workspace) => (
+            {snapshot.workspaceHealth.map((workspace: PlatformWorkspaceHealth) => (
               <div key={workspace.id} className="rounded-2xl border border-border/70 p-4">
                 <p className="font-medium text-slate-950">{workspace.name}</p>
                 <p className="text-muted-foreground">Failed docs: {workspace.failedDocs} | Pending invites: {workspace.pendingInvites}</p>
@@ -29,7 +29,7 @@ export default async function AdminSupportPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             {failedEmailItems.length > 0 ? (
-              failedEmailItems.map((email) => (
+              failedEmailItems.map((email: PlatformRecentEmail) => (
                 <div key={email.id} className="rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{email.subject}</p>
                   <p className="text-muted-foreground">{email.recipient}</p>

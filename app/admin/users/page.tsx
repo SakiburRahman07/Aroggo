@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { getPlatformAdminSnapshot } from "@/features/admin/service";
+import { getPlatformAdminSnapshot, type PlatformRecentUser } from "@/features/admin/service";
 
 export default async function AdminUsersPage() {
   const snapshot = await getPlatformAdminSnapshot();
@@ -13,7 +13,7 @@ export default async function AdminUsersPage() {
           <CardTitle>User activity</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {snapshot.recentUsers.map((user) => (
+          {snapshot.recentUsers.map((user: PlatformRecentUser) => (
             <div key={user.id} className="rounded-2xl border border-border/70 p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
