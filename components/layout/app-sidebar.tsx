@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, Bot, CalendarClock, FileText, LayoutDashboard, Settings, Stethoscope, Users, UserSquare2, CheckSquare2, BarChart3 } from "lucide-react";
 import { type Membership, type Workspace } from "@prisma/client";
 import { roleLabels } from "@/lib/security/permissions";
@@ -21,11 +24,12 @@ const navigation = [
 interface AppSidebarProps {
   workspace: Workspace;
   membership: Membership;
-  pathname: string;
   workspaces: Array<{ workspace: Workspace }>;
 }
 
-export function AppSidebar({ workspace, membership, pathname, workspaces }: AppSidebarProps) {
+export function AppSidebar({ workspace, membership, workspaces }: AppSidebarProps) {
+  const pathname = usePathname();
+
   return (
     <aside className="flex h-full w-full flex-col justify-between border-r border-border/70 bg-white/80 px-4 py-5 backdrop-blur-xl">
       <div className="space-y-6">
@@ -55,8 +59,8 @@ export function AppSidebar({ workspace, membership, pathname, workspaces }: AppS
         <nav className="space-y-1">
           {navigation.map((item) => {
             const href = `/app/${workspace.slug}${item.href}`;
+            const active = pathname === href || (item.href && pathname.startsWith(`${href}/`));
             const Icon = item.icon;
-            const active = pathname === href || pathname.startsWith(`${href}/`);
 
             return (
               <Link
