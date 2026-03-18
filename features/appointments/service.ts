@@ -1,6 +1,7 @@
 import { addMinutes, endOfDay, isAfter, isBefore, startOfDay, subHours } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { buildAppointmentVisibilityWhere, buildTaskVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { appointmentSchema, appointmentStatusSchema } from "@/features/appointments/validation";
 
@@ -130,7 +131,11 @@ export async function createAppointment(workspaceId: string, createdById: string
   );
 
   if (conflict) {
-    throw new Error("The selected doctor already has an overlapping appointment.");
+    throw new AppError({
+      code: "BUSINESS_RULE_ERROR",
+      message: "Overlapping appointment detected.",
+      userMessage: "The selected doctor already has an overlapping appointment. Choose a different time or doctor."
+    });
   }
 
   return db.appointment.create({
@@ -159,7 +164,11 @@ export async function updateAppointmentStatus(workspaceId: string, appointmentId
   });
 
   if (!appointment) {
-    throw new Error("Appointment not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Appointment not found in scope.",
+      userMessage: "Appointment not found in the current access scope."
+    });
   }
 
   const flowState = data.status === "CONFIRMED"
@@ -203,7 +212,11 @@ export async function ensureVisitForAppointment(workspaceId: string, appointment
   });
 
   if (!appointment) {
-    throw new Error("Appointment not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Appointment not found in scope.",
+      userMessage: "Appointment not found in the current access scope."
+    });
   }
 
   if (appointment.visit) {

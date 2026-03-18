@@ -2,10 +2,12 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthSession } from "@/lib/auth/options";
+import { getQrFlowError } from "@/features/qr/errors";
 import { resolvePatientQrScan } from "@/features/qr/service";
+import { createApiErrorResponse } from "@/lib/errors/next";
 
 const schema = z.object({
-  qr: z.string().min(1),
+  qr: z.string().min(1, "QR input is required."),
   intent: z.enum(["default", "check_in", "visit", "report_upload", "patient_summary"]).optional()
 });
 
@@ -26,10 +28,16 @@ export async function POST(request: Request) {
       intent: body.intent
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ok: true, data: result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "QR_INVALID";
-    const status = message === "QR_UNAUTHORIZED" ? 403 : message === "QR_INVALID" ? 404 : message === "QR_EXPIRED" || message === "QR_REVOKED" ? 410 : 400;
-    return NextResponse.json({ error: message }, { status });
+    const qrError = getQrFlowError(error);
+
+    return createApiErrorResponse(qrError, {
+      route: "POST /api/qr/resolve",
+      userId: session?.user?.id ?? null,
+      ipAddress,
+      deviceInfo,
+      qrCode: qrError.code
+    }, "Unable to resolve this QR code.");
   }
 }

@@ -5,9 +5,19 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type FieldErrors = Record<string, string[]>;
+type ApiResponse = {
+  ok?: boolean;
+  error?: {
+    message?: string;
+    fieldErrors?: FieldErrors;
+  };
+};
+
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -16,6 +26,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       onSubmit={(event) => {
         event.preventDefault();
         setError(null);
+        setFieldErrors({});
         const formData = new FormData(event.currentTarget);
         const password = String(formData.get("password") ?? "");
 
@@ -26,10 +37,11 @@ export function ResetPasswordForm({ token }: { token: string }) {
             body: JSON.stringify({ token, password })
           });
 
-          const result = (await response.json()) as { error?: string };
+          const result = (await response.json()) as ApiResponse;
 
           if (!response.ok) {
-            setError(result.error ?? "Unable to reset password.");
+            setFieldErrors(result.error?.fieldErrors ?? {});
+            setError(result.error?.message ?? "Unable to reset password.");
             return;
           }
 
@@ -42,7 +54,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <label className="text-sm font-medium text-slate-700" htmlFor="password">
           New password
         </label>
-        <Input id="password" name="password" type="password" placeholder="Create a new password" required />
+        <Input id="password" name="password" type="password" placeholder="Create a new password" required aria-invalid={Boolean(fieldErrors.password?.length)} />
+        {fieldErrors.password?.[0] ? <p className="text-sm text-red-700">{fieldErrors.password[0]}</p> : null}
       </div>
       <Button className="w-full" type="submit" disabled={isPending}>
         {isPending ? "Updating password..." : "Reset password"}
@@ -50,4 +63,3 @@ export function ResetPasswordForm({ token }: { token: string }) {
     </form>
   );
 }
-

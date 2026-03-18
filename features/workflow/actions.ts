@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { AppError, buildErrorRedirectUrl, rethrowIfFrameworkControlFlow } from "@/lib/errors";
 import { recordAuditLog } from "@/lib/audit";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import {
@@ -52,46 +53,55 @@ export async function movePatientWorkflowAction(
 }
 
 export async function createLabOrderAction(workspaceSlug: string, patientId: string, formData: FormData) {
-  const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, ["visits:write", "patients:read_clinical"]);
+  try {
+    const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, ["visits:write", "patients:read_clinical"]);
 
-  const appointmentId = String(formData.get("appointmentId") ?? "") || null;
-  const visitId = String(formData.get("visitId") ?? "") || null;
-  const testName = String(formData.get("testName") ?? "").trim();
-  const indication = String(formData.get("indication") ?? "").trim() || null;
-  const notes = String(formData.get("notes") ?? "").trim() || null;
+    const appointmentId = String(formData.get("appointmentId") ?? "") || null;
+    const visitId = String(formData.get("visitId") ?? "") || null;
+    const testName = String(formData.get("testName") ?? "").trim();
+    const indication = String(formData.get("indication") ?? "").trim() || null;
+    const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  if (!testName) {
-    throw new Error("Test name is required.");
-  }
-
-  const order = await createLabOrderForPatient({
-    workspaceId: workspace.id,
-    patientId,
-    doctorUserId: membership.userId,
-    viewer,
-    testName,
-    indication,
-    notes,
-    appointmentId,
-    visitId
-  });
-
-  await recordAuditLog({
-    workspaceId: workspace.id,
-    actorUserId: membership.userId,
-    entityType: "lab_order",
-    entityId: order.id,
-    action: "CREATE",
-    changesJson: {
-      patientId,
-      appointmentId,
-      visitId,
-      testName
+    if (!testName) {
+      throw new AppError({
+        code: "VALIDATION_ERROR",
+        message: "Test name is required.",
+        userMessage: "Test name is required."
+      });
     }
-  });
 
-  revalidatePath(`/app/${workspaceSlug}/workflow/doctor/${patientId}`);
-  revalidatePath(`/app/${workspaceSlug}/workflow/lab/${patientId}`);
+    const order = await createLabOrderForPatient({
+      workspaceId: workspace.id,
+      patientId,
+      doctorUserId: membership.userId,
+      viewer,
+      testName,
+      indication,
+      notes,
+      appointmentId,
+      visitId
+    });
+
+    await recordAuditLog({
+      workspaceId: workspace.id,
+      actorUserId: membership.userId,
+      entityType: "lab_order",
+      entityId: order.id,
+      action: "CREATE",
+      changesJson: {
+        patientId,
+        appointmentId,
+        visitId,
+        testName
+      }
+    });
+
+    revalidatePath(`/app/${workspaceSlug}/workflow/doctor/${patientId}`);
+    revalidatePath(`/app/${workspaceSlug}/workflow/lab/${patientId}`);
+  } catch (error) {
+    rethrowIfFrameworkControlFlow(error);
+    redirect(buildErrorRedirectUrl(`/app/${workspaceSlug}/workflow/doctor/${patientId}`, error));
+  }
 }
 
 export async function updateLabOrderStatusAction(workspaceSlug: string, patientId: string, orderId: string, nextStatus: "SAMPLE_COLLECTED" | "PROCESSING" | "RESULT_UPLOADED" | "DOCTOR_REVIEW_PENDING" | "DOCTOR_REVIEWED" | "RELEASED_TO_PATIENT") {
@@ -126,4 +136,3 @@ export async function openResolvedPatientWorkflowAction(workspaceSlug: string, p
   await requireWorkspaceContext(workspaceSlug);
   redirect(getWorkflowSurfacePath(workspaceSlug, surface, patientId));
 }
-

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import {
   buildAppointmentVisibilityWhere,
   buildDocumentVisibilityWhere,
@@ -157,7 +158,11 @@ export async function updatePatient(workspaceId: string, patientId: string, view
   });
 
   if (!patient) {
-    throw new Error("Patient not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Patient not found in scope.",
+      userMessage: "Patient not found in the current access scope."
+    });
   }
 
   return db.patient.update({

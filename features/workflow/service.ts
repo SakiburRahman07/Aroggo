@@ -1,6 +1,7 @@
 import { endOfDay, startOfDay } from "date-fns";
 import { type AppointmentStatus, type PatientAdminState, type PatientFlowState, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { QrFlowError } from "@/features/qr/errors";
 import {
   buildAppointmentVisibilityWhere,
@@ -662,7 +663,11 @@ export async function transitionAppointmentWorkflow(params: {
   });
 
   if (!appointment) {
-    throw new Error("Appointment not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Appointment not found in current access scope.",
+      userMessage: "Appointment not found in the current access scope."
+    });
   }
 
   const now = new Date();
@@ -722,7 +727,11 @@ export async function createLabOrderForPatient(params: {
   });
 
   if (!patient) {
-    throw new Error("Patient not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Patient not found in current access scope.",
+      userMessage: "Patient not found in the current access scope."
+    });
   }
 
   const order = await db.labOrder.create({
@@ -772,7 +781,11 @@ export async function transitionLabOrderStatus(params: {
   });
 
   if (!order) {
-    throw new Error("Lab order not found.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Lab order not found.",
+      userMessage: "Lab order not found."
+    });
   }
 
   const now = new Date();
@@ -820,3 +833,5 @@ export async function transitionLabOrderStatus(params: {
 
   return updated;
 }
+
+

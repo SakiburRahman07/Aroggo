@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { buildTaskVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { taskCommentSchema, taskSchema, taskStatusSchema } from "@/features/tasks/validation";
 
@@ -11,7 +12,11 @@ async function ensureVisibleTask(workspaceId: string, taskId: string, viewer: Vi
   });
 
   if (!task) {
-    throw new Error("Task not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Task not found in current access scope.",
+      userMessage: "Task not found in the current access scope."
+    });
   }
 
   return task;
@@ -117,3 +122,4 @@ export async function createTasksFromSuggestions(
     take: suggestions.length
   });
 }
+

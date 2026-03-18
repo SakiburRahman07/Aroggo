@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { optionalTrimmedString } from "@/validation/common";
 
 export const visitSchema = z.object({
-  symptoms: z.string().optional(),
-  observations: z.string().optional(),
-  diagnosisNote: z.string().optional(),
-  prescriptionText: z.string().optional(),
-  followUpDate: z.string().optional(),
+  symptoms: optionalTrimmedString(),
+  observations: optionalTrimmedString(),
+  diagnosisNote: optionalTrimmedString(),
+  prescriptionText: optionalTrimmedString(),
+  followUpDate: optionalTrimmedString(),
   status: z.enum(["DRAFT", "COMPLETED"]).default("DRAFT")
 });
-

@@ -5,9 +5,19 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type FieldErrors = Record<string, string[]>;
+type ApiResponse = {
+  ok?: boolean;
+  error?: {
+    message?: string;
+    fieldErrors?: FieldErrors;
+  };
+};
+
 export function ForgotPasswordForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -17,6 +27,7 @@ export function ForgotPasswordForm() {
         event.preventDefault();
         setError(null);
         setMessage(null);
+        setFieldErrors({});
         const formData = new FormData(event.currentTarget);
         const email = String(formData.get("email") ?? "");
 
@@ -27,8 +38,11 @@ export function ForgotPasswordForm() {
             body: JSON.stringify({ email })
           });
 
+          const result = (await response.json()) as ApiResponse;
+
           if (!response.ok) {
-            setError("Unable to send reset instructions.");
+            setFieldErrors(result.error?.fieldErrors ?? {});
+            setError(result.error?.message ?? "Unable to send reset instructions.");
             return;
           }
 
@@ -42,7 +56,8 @@ export function ForgotPasswordForm() {
         <label className="text-sm font-medium text-slate-700" htmlFor="email">
           Work email
         </label>
-        <Input id="email" name="email" type="email" placeholder="team@clinic.com" required />
+        <Input id="email" name="email" type="email" placeholder="team@clinic.com" required aria-invalid={Boolean(fieldErrors.email?.length)} />
+        {fieldErrors.email?.[0] ? <p className="text-sm text-red-700">{fieldErrors.email[0]}</p> : null}
       </div>
       <Button className="w-full" type="submit" disabled={isPending}>
         {isPending ? "Sending..." : "Send reset link"}
@@ -53,4 +68,3 @@ export function ForgotPasswordForm() {
     </form>
   );
 }
-

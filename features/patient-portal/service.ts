@@ -1,7 +1,8 @@
-import { addDays, isBefore } from "date-fns";
+import { addDays } from "date-fns";
 import { hash } from "bcryptjs";
 import { type AppointmentStatus, type QrIdentifierType, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { sendTransactionalEmail } from "@/lib/email/service";
 import { randomPublicId, randomToken, sha256Hex } from "@/lib/security/tokens";
 import { resolvePatientQrScan as resolveRoleAwarePatientQrScan } from "@/features/qr/service";
@@ -16,7 +17,6 @@ export function buildScanUrl(publicId: string) {
 function buildPortalInviteUrl(token: string) {
   return `${portalBaseUrl}/portal/activate?token=${token}`;
 }
-
 
 export async function ensurePermanentPatientQr(workspaceId: string, patientId: string, createdById?: string) {
   const existing = await db.patientQrIdentifier.findFirst({
@@ -107,11 +107,19 @@ export async function createPatientPortalInvite(params: {
   });
 
   if (!patient) {
-    throw new Error("Patient not found.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Patient not found for portal invite.",
+      userMessage: "Patient not found."
+    });
   }
 
   if (!patient.email) {
-    throw new Error("Patient email is required before sending portal access.");
+    throw new AppError({
+      code: "VALIDATION_ERROR",
+      message: "Patient email required for portal invite.",
+      userMessage: "Patient email is required before sending portal access."
+    });
   }
 
   const rawToken = randomToken(24);
@@ -162,6 +170,18 @@ export async function createPatientPortalInvite(params: {
     }
   });
 
+  if (!emailResult.ok) {
+    throw new AppError({
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: `Patient portal invite email failed: ${emailResult.error}`,
+      userMessage: "The portal invite was created, but the email could not be sent. Use the manual activation link instead.",
+      details: {
+        patientId: patient.id,
+        workspaceId: params.workspaceId
+      }
+    });
+  }
+
   return {
     invite,
     acceptUrl,
@@ -185,7 +205,11 @@ export async function activatePatientPortalInvite(params: {
   });
 
   if (!invite || invite.status !== "PENDING" || invite.expiresAt < new Date()) {
-    throw new Error("This portal activation link is invalid or expired.");
+    throw new AppError({
+      code: "BUSINESS_RULE_ERROR",
+      message: "Portal activation link invalid or expired.",
+      userMessage: "This portal activation link is invalid or expired."
+    });
   }
 
   const existingUser = await db.user.findUnique({
@@ -194,7 +218,11 @@ export async function activatePatientPortalInvite(params: {
   });
 
   if (existingUser?.memberships.length) {
-    throw new Error("This email is already used by an internal staff account. Use a different address for patient portal access.");
+    throw new AppError({
+      code: "CONFLICT_ERROR",
+      message: "Patient portal email belongs to staff account.",
+      userMessage: "This email is already used by an internal staff account. Use a different address for patient portal access."
+    });
   }
 
   const passwordHash = await hash(params.password, 12);
@@ -238,7 +266,11 @@ export async function activatePatientPortalInvite(params: {
     });
 
     if (existingPortalAccountForUser && existingPortalAccountForUser.patientId !== invite.patientId) {
-      throw new Error("This email is already linked to another patient portal account. Use the invited patient email or contact the clinic to reset portal access.");
+      throw new AppError({
+        code: "CONFLICT_ERROR",
+        message: "Email already linked to another patient portal account.",
+        userMessage: "This email is already linked to another patient portal account. Use the invited patient email or contact the clinic to reset portal access."
+      });
     }
 
     const portalAccount = existingPortalAccountForPatient
@@ -502,7 +534,11 @@ export async function checkInPatientFromQr(params: {
   });
 
   if (!portalAccount) {
-    throw new Error("Portal access not found.");
+    throw new AppError({
+      code: "AUTHENTICATION_ERROR",
+      message: "Portal access not found for user.",
+      userMessage: "Portal access not found."
+    });
   }
 
   const qr = await db.patientQrIdentifier.findFirst({
@@ -515,7 +551,11 @@ export async function checkInPatientFromQr(params: {
   });
 
   if (!qr) {
-    throw new Error("QR code is invalid for this patient.");
+    throw new AppError({
+      code: "BUSINESS_RULE_ERROR",
+      message: "QR code invalid for patient self check-in.",
+      userMessage: "QR code is invalid for this patient."
+    });
   }
 
   const appointment = await db.appointment.findFirst({
@@ -534,7 +574,11 @@ export async function checkInPatientFromQr(params: {
   });
 
   if (!appointment) {
-    throw new Error("No eligible appointment was found for self check-in.");
+    throw new AppError({
+      code: "BUSINESS_RULE_ERROR",
+      message: "No eligible appointment found for self check-in.",
+      userMessage: "No eligible appointment was found for self check-in."
+    });
   }
 
   await db.$transaction([

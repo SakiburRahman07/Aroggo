@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 import { getScopedVisitAccess } from "@/lib/security/scopes";
 
-export default async function VisitDetailPage({ params }: { params: Promise<{ workspaceSlug: string; visitId: string }> }) {
+export default async function VisitDetailPage({ params, searchParams }: { params: Promise<{ workspaceSlug: string; visitId: string }>; searchParams: Promise<{ error?: string }> }) {
   const { workspaceSlug, visitId } = await params;
+  const { error } = await searchParams;
   const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, "visits:read");
   const visitAccess = getScopedVisitAccess(membership.role);
   const visit = await getVisitDetail(workspace.id, visitId, viewer);
@@ -25,6 +26,8 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ wo
 
   return (
     <div className="space-y-8">
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <PageHeader eyebrow="Visit detail" title={visit.patient.fullName} description={visit.appointment ? `Linked to appointment ${visit.appointment.reason}` : "Standalone visit record"} />
       <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
         <Card>
@@ -119,3 +122,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ wo
     </div>
   );
 }
+
+
+
+

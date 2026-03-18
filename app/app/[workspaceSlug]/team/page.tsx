@@ -12,8 +12,9 @@ import { hasPermission, roleLabels } from "@/lib/security/permissions";
 
 const roleOptions = ["CLINIC_ADMIN", "DOCTOR", "RECEPTIONIST", "LAB_STAFF", "OPERATIONS_MANAGER"] as const;
 
-export default async function TeamPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
+export default async function TeamPage({ params, searchParams }: { params: Promise<{ workspaceSlug: string }>; searchParams: Promise<{ error?: string }> }) {
   const { workspaceSlug } = await params;
+  const { error } = await searchParams;
   const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, ["members:read", "members:manage"]);
   const snapshot = await getWorkspaceTeamSnapshot(workspace.id);
   const inviteAction = inviteWorkspaceMemberAction.bind(null, workspaceSlug);
@@ -22,6 +23,7 @@ export default async function TeamPage({ params }: { params: Promise<{ workspace
   return (
     <div className="space-y-8">
       <PageHeader eyebrow="Team" title={canManageMembers ? "Members and invites" : "Team overview"} description="Review roles, department coverage, and invite status for your clinic workspace." />
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         {canManageMembers ? (
           <Card>

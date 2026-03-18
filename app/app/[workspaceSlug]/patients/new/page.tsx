@@ -7,14 +7,16 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { requireWorkspaceContext } from "@/lib/auth/session";
 
-export default async function NewPatientPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
+export default async function NewPatientPage({ params, searchParams }: { params: Promise<{ workspaceSlug: string }>; searchParams: Promise<{ error?: string }> }) {
   const { workspaceSlug } = await params;
+  const { error } = await searchParams;
   await requireWorkspaceContext(workspaceSlug, "patients:write_basic");
   const createAction = createPatientAction.bind(null, workspaceSlug);
 
   return (
     <div className="space-y-8">
       <PageHeader eyebrow="Patients" title="Register patient" description="Create a patient profile that can be linked to appointments, visits, tasks, and documents." />
+      {error ? <div className="max-w-4xl rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <Card className="max-w-4xl">
         <CardHeader>
           <CardTitle>Patient intake</CardTitle>
