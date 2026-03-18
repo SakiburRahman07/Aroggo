@@ -1,21 +1,30 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function PortalLoginForm() {
+type PortalLoginFormProps = {
+  callbackUrl?: string;
+  email?: string;
+  activated?: boolean;
+  activationRequired?: boolean;
+  invalidQr?: boolean;
+};
+
+export function PortalLoginForm({
+  callbackUrl = "/portal",
+  email = "",
+  activated = false,
+  activationRequired = false,
+  invalidQr = false
+}: PortalLoginFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
-  const activated = searchParams.get("activated") === "1";
-  const activationRequired = searchParams.get("activation") === "required";
-  const invalidQr = searchParams.get("error") === "invalid";
 
   return (
     <form
@@ -24,12 +33,12 @@ export function PortalLoginForm() {
         event.preventDefault();
         setError(null);
         const formData = new FormData(event.currentTarget);
-        const email = String(formData.get("email") ?? "");
+        const submittedEmail = String(formData.get("email") ?? "");
         const password = String(formData.get("password") ?? "");
 
         startTransition(async () => {
           const response = await signIn("credentials", {
-            email,
+            email: submittedEmail,
             password,
             redirect: false
           });
@@ -52,7 +61,7 @@ export function PortalLoginForm() {
         <label className="text-sm font-medium text-slate-700" htmlFor="email">
           Portal email
         </label>
-        <Input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={searchParams.get("email") ?? ""} required />
+        <Input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={email} required />
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between">

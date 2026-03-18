@@ -23,7 +23,7 @@ export default async function PatientScanContextPage({ params }: { params: Promi
       <PageHeader
         eyebrow="Active Patient Context"
         title={context.patient.fullName}
-        description={`${context.patient.patientCode} · Resolved from secure QR for ${membership.role.replaceAll("_", " ")}`}
+        description={`${context.patient.patientCode}  -  Resolved from secure QR for ${membership.role.replaceAll("_", " ")}`}
         actions={
           <Button asChild>
             <Link href={context.recommendedNextRoute.href}>Continue workflow</Link>

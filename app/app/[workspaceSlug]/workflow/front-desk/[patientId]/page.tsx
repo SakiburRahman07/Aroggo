@@ -30,7 +30,7 @@ export default async function FrontDeskPatientWorkflowPage({ params }: { params:
       <PageHeader
         eyebrow="Front Desk Patient Context"
         title={context.patient.fullName}
-        description={`${context.patient.patientCode} · ${context.patient.phone} · Continue intake, check-in, and handoff from one front-desk workflow.`}
+        description={`${context.patient.patientCode}  -  ${context.patient.phone}  -  Continue intake, check-in, and handoff from one front-desk workflow.`}
         actions={
           <div className="flex gap-3">
             <Button asChild>
