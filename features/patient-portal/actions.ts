@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { recordAuditLog } from "@/lib/audit";
 import { AppError, buildErrorRedirectUrl, normalizeAppError, rethrowIfFrameworkControlFlow } from "@/lib/errors";
 import { requirePatientPortalContext, requireWorkspaceContext } from "@/lib/auth/session";
@@ -21,6 +22,11 @@ import {
 function buildPortalActivationErrorRedirect(token: string, error: string) {
   return `/portal/activate?token=${encodeURIComponent(token)}&error=${encodeURIComponent(error)}`;
 }
+
+const portalActivationSchema = z.object({
+  fullName: fullNameSchema,
+  password: passwordSchema
+});
 
 export async function sendPatientPortalInviteAction(workspaceSlug: string, patientId: string) {
   try {
@@ -76,12 +82,14 @@ export async function reissuePatientPermanentQrAction(workspaceSlug: string, pat
 }
 
 export async function activatePatientPortalInviteAction(token: string, formData: FormData) {
-  const fullName = String(formData.get("fullName") ?? "");
-  const password = String(formData.get("password") ?? "");
+  const submittedValues = {
+    fullName: String(formData.get("fullName") ?? ""),
+    password: String(formData.get("password") ?? "")
+  };
+  let values: z.infer<typeof portalActivationSchema>;
 
   try {
-    fullNameSchema.parse(fullName);
-    passwordSchema.parse(password);
+    values = portalActivationSchema.parse(submittedValues);
   } catch (error) {
     const normalized = normalizeAppError(error);
     const fieldErrors = normalized.fieldErrors ?? {};
@@ -98,12 +106,15 @@ export async function activatePatientPortalInviteAction(token: string, formData:
   }
 
   try {
-    await activatePatientPortalInvite({
+    const result = await activatePatientPortalInvite({
       token,
-      fullName,
-      password
+      fullName: values.fullName,
+      password: values.password
     });
+
+    redirect(`/portal/login?activated=1&email=${encodeURIComponent(result.email)}`);
   } catch (error) {
+    rethrowIfFrameworkControlFlow(error);
     const normalized = normalizeAppError(error);
 
     if (normalized.userMessage.includes("invalid or expired")) {
@@ -120,8 +131,6 @@ export async function activatePatientPortalInviteAction(token: string, formData:
 
     redirect(buildPortalActivationErrorRedirect(token, "activation"));
   }
-
-  redirect(`/portal/login?activated=1`);
 }
 
 export async function releaseDocumentToPatientAction(workspaceSlug: string, documentId: string, released: boolean) {
@@ -220,3 +229,4 @@ export async function resolveScanInputAction(workspaceSlug: string, formData: Fo
 
   redirect(`/scan/${publicId}`);
 }
+
