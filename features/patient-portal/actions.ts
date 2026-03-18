@@ -18,9 +18,13 @@ import {
 } from "@/features/patient-portal/service";
 
 const activationSchema = z.object({
-  fullName: z.string().min(2),
+  fullName: z.string().trim().min(2),
   password: z.string().min(8)
 });
+
+function buildPortalActivationErrorRedirect(token: string, error: string) {
+  return `/portal/activate?token=${encodeURIComponent(token)}&error=${encodeURIComponent(error)}`;
+}
 
 export async function sendPatientPortalInviteAction(workspaceSlug: string, patientId: string) {
   const { workspace, membership } = await requireWorkspaceContext(workspaceSlug, "patients:write_basic");
@@ -61,16 +65,48 @@ export async function reissuePatientPermanentQrAction(workspaceSlug: string, pat
 }
 
 export async function activatePatientPortalInviteAction(token: string, formData: FormData) {
-  const parsed = activationSchema.parse({
+  const parsed = activationSchema.safeParse({
     fullName: formData.get("fullName"),
     password: formData.get("password")
   });
 
-  await activatePatientPortalInvite({
-    token,
-    fullName: parsed.fullName,
-    password: parsed.password
-  });
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+
+    if (fieldErrors.fullName?.length) {
+      redirect(buildPortalActivationErrorRedirect(token, "full-name"));
+    }
+
+    if (fieldErrors.password?.length) {
+      redirect(buildPortalActivationErrorRedirect(token, "password"));
+    }
+
+    redirect(buildPortalActivationErrorRedirect(token, "invalid"));
+  }
+
+  try {
+    await activatePatientPortalInvite({
+      token,
+      fullName: parsed.data.fullName,
+      password: parsed.data.password
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Portal activation failed.";
+
+    if (message.includes("invalid or expired")) {
+      redirect(buildPortalActivationErrorRedirect(token, "token"));
+    }
+
+    if (message.includes("already used by an internal staff account")) {
+      redirect(buildPortalActivationErrorRedirect(token, "staff-email"));
+    }
+
+    if (message.includes("already linked to another patient portal account")) {
+      redirect(buildPortalActivationErrorRedirect(token, "email-in-use"));
+    }
+
+    redirect(buildPortalActivationErrorRedirect(token, "activation"));
+  }
 
   redirect(`/portal/login?activated=1`);
 }

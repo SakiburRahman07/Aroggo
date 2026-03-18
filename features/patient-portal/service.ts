@@ -225,23 +225,55 @@ export async function activatePatientPortalInvite(params: {
           }
         });
 
-    const portalAccount = await tx.patientPortalAccount.upsert({
+    const existingPortalAccountForPatient = await tx.patientPortalAccount.findUnique({
       where: {
         patientId: invite.patientId
-      },
-      create: {
-        patientId: invite.patientId,
-        userId: user.id,
-        workspaceId: invite.workspaceId,
-        portalEnabled: true,
-        activatedAt: new Date()
-      },
-      update: {
-        userId: user.id,
-        portalEnabled: true,
-        activatedAt: new Date()
       }
     });
+
+    const existingPortalAccountForUser = await tx.patientPortalAccount.findUnique({
+      where: {
+        userId: user.id
+      }
+    });
+
+    if (existingPortalAccountForUser && existingPortalAccountForUser.patientId !== invite.patientId) {
+      throw new Error("This email is already linked to another patient portal account. Use the invited patient email or contact the clinic to reset portal access.");
+    }
+
+    const portalAccount = existingPortalAccountForPatient
+      ? await tx.patientPortalAccount.update({
+          where: {
+            id: existingPortalAccountForPatient.id
+          },
+          data: {
+            userId: user.id,
+            workspaceId: invite.workspaceId,
+            portalEnabled: true,
+            activatedAt: new Date()
+          }
+        })
+      : existingPortalAccountForUser
+        ? await tx.patientPortalAccount.update({
+            where: {
+              id: existingPortalAccountForUser.id
+            },
+            data: {
+              patientId: invite.patientId,
+              workspaceId: invite.workspaceId,
+              portalEnabled: true,
+              activatedAt: new Date()
+            }
+          })
+        : await tx.patientPortalAccount.create({
+            data: {
+              patientId: invite.patientId,
+              userId: user.id,
+              workspaceId: invite.workspaceId,
+              portalEnabled: true,
+              activatedAt: new Date()
+            }
+          });
 
     await tx.patient.update({
       where: { id: invite.patientId },
