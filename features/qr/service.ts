@@ -1,5 +1,6 @@
 import { type QrIdentifierType, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
+import { QrFlowError } from "@/features/qr/errors";
 import { enforceSimpleRateLimit } from "@/lib/security/rate-limit";
 import { PATIENT_PORTAL_ROLE } from "@/lib/security/patient-portal";
 import {
@@ -138,7 +139,7 @@ export async function resolvePatientQrScan(params: {
   });
 
   if (!qr) {
-    throw new Error("QR_INVALID");
+    throw new QrFlowError("QR_INVALID", "Patient QR code was not found.");
   }
 
   if (qr.revokedAt) {
@@ -154,7 +155,12 @@ export async function resolvePatientQrScan(params: {
       ipAddress: params.ipAddress,
       deviceInfo: params.deviceInfo
     });
-    throw new Error("QR_REVOKED");
+    throw new QrFlowError("QR_REVOKED", "Patient QR code has been revoked.", {
+      workspaceId: qr.workspaceId,
+      workspaceSlug: qr.patient.workspace.slug,
+      patientId: qr.patientId,
+      actorUserId: params.userId ?? undefined
+    });
   }
 
   if (qr.expiresAt && qr.expiresAt < new Date()) {
@@ -170,7 +176,12 @@ export async function resolvePatientQrScan(params: {
       ipAddress: params.ipAddress,
       deviceInfo: params.deviceInfo
     });
-    throw new Error("QR_EXPIRED");
+    throw new QrFlowError("QR_EXPIRED", "Patient QR code has expired.", {
+      workspaceId: qr.workspaceId,
+      workspaceSlug: qr.patient.workspace.slug,
+      patientId: qr.patientId,
+      actorUserId: params.userId ?? undefined
+    });
   }
 
   if (!params.userId) {
@@ -199,8 +210,24 @@ export async function resolvePatientQrScan(params: {
       ipAddress: params.ipAddress,
       deviceInfo: params.deviceInfo
     });
-    throw new Error("QR_UNAUTHORIZED");
+    throw new QrFlowError("STAFF_SESSION_REQUIRED", "An authenticated staff or patient session is required.", {
+      workspaceId: qr.workspaceId,
+      workspaceSlug: qr.patient.workspace.slug,
+      patientId: qr.patientId,
+      actorUserId: params.userId
+    });
   }
+
+  console.info("[qr] actor-resolved", {
+    publicId: params.publicId,
+    actorUserId: actor.userId,
+    actorRole: actor.kind === "staff" ? actor.role : PATIENT_PORTAL_ROLE,
+    actorKind: actor.kind,
+    workspaceId: qr.workspaceId,
+    workspaceSlug: qr.patient.workspace.slug,
+    patientId: qr.patientId,
+    intent: params.intent ?? "default"
+  });
 
   await db.patientQrIdentifier.update({
     where: { id: qr.id },
@@ -309,6 +336,28 @@ export async function resolvePatientQrScan(params: {
       intent: params.intent
     });
   } catch (error) {
+    const qrError = error instanceof QrFlowError
+      ? error
+      : new QrFlowError("WORKFLOW_CONTEXT_BUILD_FAILED", "Unable to build patient workflow context.", {
+        workspaceId: qr.workspaceId,
+        workspaceSlug: qr.patient.workspace.slug,
+        patientId: qr.patientId,
+        actorUserId: actor.userId,
+        actorRole: actor.role,
+        causeMessage: error instanceof Error ? error.message : "Unknown workflow failure"
+      });
+
+    console.error("[qr] workflow-context-failed", {
+      publicId: params.publicId,
+      code: qrError.code,
+      actorUserId: actor.userId,
+      actorRole: actor.role,
+      workspaceId: qr.workspaceId,
+      workspaceSlug: qr.patient.workspace.slug,
+      patientId: qr.patientId,
+      cause: qrError.causeMessage ?? qrError.message
+    });
+
     await recordQrLog({
       workspaceId: qr.workspaceId,
       patientId: qr.patientId,
@@ -321,13 +370,30 @@ export async function resolvePatientQrScan(params: {
       ipAddress: params.ipAddress,
       deviceInfo: params.deviceInfo,
       metadataJson: {
-        reason: error instanceof Error ? error.message : "QR_UNAUTHORIZED"
+        code: qrError.code,
+        reason: qrError.message,
+        cause: qrError.causeMessage ?? qrError.message,
+        actorRole: actor.role
       }
     });
-    throw new Error("QR_UNAUTHORIZED");
+
+    throw qrError;
   }
 
   const redirectTo = `${context.recommendedNextRoute.href}?resolvedFrom=qr`;
+
+  console.info("[qr] workflow-context", {
+    publicId: params.publicId,
+    actorUserId: actor.userId,
+    actorRole: actor.role,
+    workspaceId: qr.workspaceId,
+    workspaceSlug: qr.patient.workspace.slug,
+    patientId: qr.patientId,
+    appointmentId: context.activeAppointmentId,
+    visitId: context.activeVisitId,
+    route: redirectTo,
+    workflowState: context.currentWorkflowState
+  });
 
   await recordQrLog({
     workspaceId: qr.workspaceId,
