@@ -1,6 +1,6 @@
 import { type QrIdentifierType, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
-import { QrFlowError } from "@/features/qr/errors";
+import { QrFlowError, rethrowIfRedirectError } from "@/features/qr/errors";
 import { enforceSimpleRateLimit } from "@/lib/security/rate-limit";
 import { PATIENT_PORTAL_ROLE } from "@/lib/security/patient-portal";
 import {
@@ -336,6 +336,8 @@ export async function resolvePatientQrScan(params: {
       intent: params.intent
     });
   } catch (error) {
+    rethrowIfRedirectError(error);
+
     const qrError = error instanceof QrFlowError
       ? error
       : new QrFlowError("WORKFLOW_CONTEXT_BUILD_FAILED", "Unable to build patient workflow context.", {

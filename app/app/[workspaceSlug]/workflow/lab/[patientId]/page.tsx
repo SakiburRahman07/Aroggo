@@ -25,7 +25,7 @@ export default async function LabPatientWorkflowPage({ params }: { params: Promi
       <PageHeader
         eyebrow="Lab Patient Context"
         title={context.patient.fullName}
-        description={`${context.patient.patientCode} · ${context.patient.phone} · Match orders, upload results, and push cases toward doctor review.`}
+        description={`${context.patient.patientCode}  -  ${context.patient.phone}  -  Match orders, upload results, and push cases toward doctor review.`}
         actions={
           <div className="flex gap-3">
             <Button asChild>
@@ -113,7 +113,7 @@ export default async function LabPatientWorkflowPage({ params }: { params: Promi
               {context.recentReports.length > 0 ? context.recentReports.map((report) => (
                 <Link key={report.id} href={`/app/${workspaceSlug}/documents/${report.id}`} className="block rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{report.title}</p>
-                  <p className="mt-1 text-muted-foreground">{report.processingStatus} · {formatDateTime(report.createdAt)}</p>
+                  <p className="mt-1 text-muted-foreground">{report.processingStatus}  -  {formatDateTime(report.createdAt)}</p>
                 </Link>
               )) : <p className="text-muted-foreground">No patient-linked reports are visible in the lab scope.</p>}
             </CardContent>

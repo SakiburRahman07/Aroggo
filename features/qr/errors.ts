@@ -1,3 +1,5 @@
+import { isRedirectError } from "next/dist/client/components/redirect-error";
+
 export type QrErrorCode =
   | "QR_INVALID"
   | "QR_REVOKED"
@@ -32,7 +34,18 @@ export function isQrFlowError(error: unknown): error is QrFlowError {
   return error instanceof QrFlowError;
 }
 
+export function isNextRedirectError(error: unknown) {
+  return isRedirectError(error);
+}
+
+export function rethrowIfRedirectError(error: unknown) {
+  if (isNextRedirectError(error)) {
+    throw error;
+  }
+}
+
 export function getQrFlowError(error: unknown) {
+  rethrowIfRedirectError(error);
   if (isQrFlowError(error)) {
     return error;
   }
