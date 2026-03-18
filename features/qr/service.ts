@@ -297,14 +297,35 @@ export async function resolvePatientQrScan(params: {
     };
   }
 
-  const context = await buildActivePatientContext({
-    workspaceId: qr.workspaceId,
-    patientId: qr.patientId,
-    role: actor.role,
-    userId: actor.userId,
-    resolvedFrom: "qr",
-    intent: params.intent
-  });
+  let context: PatientScanContext;
+
+  try {
+    context = await buildActivePatientContext({
+      workspaceId: qr.workspaceId,
+      patientId: qr.patientId,
+      role: actor.role,
+      userId: actor.userId,
+      resolvedFrom: "qr",
+      intent: params.intent
+    });
+  } catch (error) {
+    await recordQrLog({
+      workspaceId: qr.workspaceId,
+      patientId: qr.patientId,
+      qrIdentifierId: qr.id,
+      scannerUserId: params.userId,
+      scannerRole: actor.role,
+      qrType: qr.qrType,
+      scanContext: "resolve-api",
+      status: "UNAUTHORIZED",
+      ipAddress: params.ipAddress,
+      deviceInfo: params.deviceInfo,
+      metadataJson: {
+        reason: error instanceof Error ? error.message : "QR_UNAUTHORIZED"
+      }
+    });
+    throw new Error("QR_UNAUTHORIZED");
+  }
 
   const redirectTo = `${context.recommendedNextRoute.href}?resolvedFrom=qr`;
 
