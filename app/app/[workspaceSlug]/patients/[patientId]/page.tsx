@@ -132,8 +132,16 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
                 <form action={reissueQrAction}><Button type="submit" variant="outline">Reissue QR</Button></form>
               </div>
               {portalSnapshot?.latestInvite ? (
-                <div className="rounded-2xl border border-border/70 p-4 text-muted-foreground">
-                  Latest invite: {portalSnapshot.latestInvite.status} until {formatDateTime(portalSnapshot.latestInvite.expiresAt)}
+                <div className="space-y-3 rounded-2xl border border-border/70 p-4 text-muted-foreground">
+                  <p>Latest invite: <span className="font-medium text-slate-950">{portalSnapshot.latestInvite.status}</span> until {formatDateTime(portalSnapshot.latestInvite.expiresAt)}</p>
+                  <p>Email delivery: <span className="font-medium text-slate-950">{portalSnapshot.latestInviteEmail?.status ?? "Not attempted"}</span></p>
+                  {portalSnapshot.latestInviteEmail?.errorMessage ? <p className="text-red-700">Email issue: {portalSnapshot.latestInviteEmail.errorMessage}</p> : null}
+                  {portalSnapshot.manualInviteUrl ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Manual activation link</p>
+                      <Input readOnly value={portalSnapshot.manualInviteUrl} />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               {portalSnapshot?.permanentQrUrl ? (

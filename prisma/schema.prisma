@@ -48,9 +48,49 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum PatientAdminState {
+  NEW
+  REGISTERED
+  PORTAL_INVITED
+  PORTAL_ACTIVE
+}
+
+enum PatientFlowState {
+  SCHEDULED
+  CONFIRMED
+  ARRIVED
+  READY_FOR_PROVIDER
+  IN_CONSULTATION
+  SENT_TO_LAB
+  WAITING_FOR_RESULT
+  REVIEWED
+  CHECKED_OUT
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
 enum VisitStatus {
   DRAFT
   COMPLETED
+}
+
+enum LabOrderStatus {
+  ORDERED
+  SAMPLE_COLLECTED
+  PROCESSING
+  RESULT_UPLOADED
+  DOCTOR_REVIEW_PENDING
+  DOCTOR_REVIEWED
+  RELEASED_TO_PATIENT
+  CANCELLED
+}
+
+enum ClinicalDocumentState {
+  DRAFT
+  SIGNED
+  RELEASED_TO_PATIENT
+  ARCHIVED
 }
 
 enum DocumentType {
@@ -178,6 +218,8 @@ model User {
   createdWorkspaces    Workspace[]         @relation("WorkspaceCreator")
   documentsUploaded    Document[]          @relation("DocumentUploader")
   invitedMemberships   Membership[]        @relation("MembershipInviter")
+  labOrdersOrdered     LabOrder[]          @relation("LabOrderDoctor")
+  labOrdersProcessed   LabOrder[]          @relation("LabOrderProcessedBy")
   memberships          Membership[]
   notifications        Notification[]
   patientPortalAccount PatientPortalAccount?
@@ -230,6 +272,7 @@ model Workspace {
   documents      Document[]
   emailLogs      EmailLog[]
   invites        WorkspaceInvite[]
+  labOrders      LabOrder[]
   memberships    Membership[]
   notifications  Notification[]
   patientPortalAccounts PatientPortalAccount[]
@@ -315,6 +358,7 @@ model Patient {
   address          String?
   emergencyContact String?         @map("emergency_contact")
   notes            String?
+  adminState       PatientAdminState @default(REGISTERED) @map("admin_state")
   portalEnabled    Boolean         @default(false) @map("portal_enabled")
   createdById      String          @map("created_by")
   createdAt        DateTime        @default(now()) @map("created_at")
@@ -324,6 +368,7 @@ model Patient {
   createdBy        User            @relation("PatientCreator", fields: [createdById], references: [id], onDelete: Restrict)
   documents        Document[]
   documentChunks   DocumentChunk[]
+  labOrders        LabOrder[]
   tasks            Task[]
   visits           Visit[]
   portalAccount    PatientPortalAccount?
@@ -476,19 +521,25 @@ model Appointment {
   durationMinutes Int               @default(30) @map("duration_minutes")
   reason          String
   status          AppointmentStatus @default(SCHEDULED)
+  flowState       PatientFlowState  @default(SCHEDULED) @map("flow_state")
   notes           String?
+  arrivedAt       DateTime?         @map("arrived_at")
+  readyForProviderAt DateTime?      @map("ready_for_provider_at")
+  checkedOutAt    DateTime?         @map("checked_out_at")
   createdById     String            @map("created_by")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   createdBy       User              @relation("AppointmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
   doctor          User              @relation("AppointmentDoctor", fields: [doctorUserId], references: [id], onDelete: Restrict)
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  labOrders       LabOrder[]
   tasks           Task[]
   visit           Visit?
   checkInEvents   AppointmentCheckInEvent[]
   workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, scheduledAt])
+  @@index([workspaceId, flowState, scheduledAt])
   @@index([workspaceId, doctorUserId, scheduledAt])
   @@index([patientId])
   @@map("appointments")
@@ -512,10 +563,13 @@ model Visit {
   releasedAt       DateTime?   @map("released_at")
   releasedById     String?     @map("released_by")
   followUpDate     DateTime?   @map("follow_up_date")
+  startedConsultationAt DateTime? @map("started_consultation_at")
+  reviewedAt       DateTime?   @map("reviewed_at")
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
   appointment      Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   doctor           User         @relation("VisitDoctor", fields: [doctorUserId], references: [id], onDelete: Restrict)
+  labOrders        LabOrder[]
   patient          Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
   releasedBy       User?        @relation("VisitReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
   workspace        Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -538,6 +592,7 @@ model Document {
   processingStatus DocumentProcessingStatus @default(UPLOADED) @map("processing_status")
   extractedText    String?                  @db.Text @map("extracted_text")
   summary          String?                  @db.Text
+  clinicalState    ClinicalDocumentState    @default(DRAFT) @map("clinical_state")
   releasedToPatient Boolean                 @default(false) @map("released_to_patient")
   releasedAt       DateTime?                @map("released_at")
   releasedById     String?                  @map("released_by")
@@ -547,6 +602,7 @@ model Document {
   createdAt        DateTime                 @default(now()) @map("created_at")
   updatedAt        DateTime                 @updatedAt @map("updated_at")
   chunks           DocumentChunk[]
+  labOrder         LabOrder?                @relation("LabOrderResultDocument")
   patient          Patient?                 @relation(fields: [patientId], references: [id], onDelete: SetNull)
   releasedBy       User?                    @relation("DocumentReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
   uploadedBy       User                     @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
@@ -554,8 +610,44 @@ model Document {
 
   @@index([workspaceId, patientId])
   @@index([workspaceId, processingStatus])
+  @@index([workspaceId, clinicalState, releasedAt])
   @@index([workspaceId, releasedToPatient, releasedAt])
   @@map("documents")
+}
+
+model LabOrder {
+  id                 String         @id @default(cuid())
+  workspaceId        String         @map("workspace_id")
+  patientId          String         @map("patient_id")
+  appointmentId      String?        @map("appointment_id")
+  visitId            String?        @map("visit_id")
+  orderedByDoctorId  String         @map("ordered_by_doctor_id")
+  processedByUserId  String?        @map("processed_by_user_id")
+  testName           String         @map("test_name")
+  indication         String?        @db.Text
+  notes              String?        @db.Text
+  status             LabOrderStatus @default(ORDERED)
+  resultDocumentId   String?        @unique @map("result_document_id")
+  orderedAt          DateTime       @default(now()) @map("ordered_at")
+  sampleCollectedAt  DateTime?      @map("sample_collected_at")
+  processingStartedAt DateTime?     @map("processing_started_at")
+  resultUploadedAt   DateTime?      @map("result_uploaded_at")
+  doctorReviewedAt   DateTime?      @map("doctor_reviewed_at")
+  releasedAt         DateTime?      @map("released_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  appointment        Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  orderedByDoctor    User           @relation("LabOrderDoctor", fields: [orderedByDoctorId], references: [id], onDelete: Restrict)
+  patient            Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  processedByUser    User?          @relation("LabOrderProcessedBy", fields: [processedByUserId], references: [id], onDelete: SetNull)
+  resultDocument     Document?      @relation("LabOrderResultDocument", fields: [resultDocumentId], references: [id], onDelete: SetNull)
+  visit              Visit?         @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  workspace          Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, patientId, status])
+  @@index([workspaceId, orderedByDoctorId, status])
+  @@index([workspaceId, appointmentId])
+  @@map("lab_orders")
 }
 
 model DocumentChunk {

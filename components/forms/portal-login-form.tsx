@@ -14,6 +14,8 @@ export function PortalLoginForm() {
   const [isPending, startTransition] = useTransition();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
   const activated = searchParams.get("activated") === "1";
+  const activationRequired = searchParams.get("activation") === "required";
+  const invalidQr = searchParams.get("error") === "invalid";
 
   return (
     <form
@@ -43,6 +45,8 @@ export function PortalLoginForm() {
       }}
     >
       {activated ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Portal access activated. Sign in to continue.</div> : null}
+      {activationRequired ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Portal not activated yet. Use the activation link from your clinic invitation email, or ask the clinic to resend or share the activation link manually.</div> : null}
+      {invalidQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code could not open the portal directly. If your portal is not activated yet, use your invitation link first.</div> : null}
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700" htmlFor="email">

@@ -50,7 +50,7 @@ export default async function PatientsPage({
       ) : (
         <div className="grid gap-4">
           {patients.map((patient: PatientListItem) => (
-            <Link key={patient.id} href={`/app/${workspaceSlug}/patients/${patient.id}`}>
+            <Link key={patient.id} href={`/app/${workspaceSlug}/workflow/patient/${patient.id}?resolvedFrom=search`}>
               <Card className="bg-white/90 transition hover:-translate-y-0.5">
                 <CardContent className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
                   <div>

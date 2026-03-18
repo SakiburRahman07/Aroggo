@@ -2,7 +2,7 @@ import { db } from "@/lib/db/prisma";
 import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
 import { buildVisitVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { noteTaskSuggestionsSchema } from "@/features/ai/validation";
-import { getWorkspaceAnalytics } from "@/features/analytics/service";
+import { getAnalyticsGroupCount, getWorkspaceAnalytics } from "@/features/analytics/service";
 import { retrieveRelevantChunks } from "@/features/documents/service";
 import { createTasksFromSuggestions } from "@/features/tasks/service";
 
@@ -15,9 +15,9 @@ function pluralize(value: number, singular: string, plural = `${singular}s`) {
 }
 
 function buildOperationalSummaryFallback(analytics: WorkspaceAnalyticsSnapshot) {
-  const noShows = analytics.appointmentStatusDistribution.find((item) => item.status === "NO_SHOW")?._count ?? 0;
+  const noShows = getAnalyticsGroupCount(analytics.appointmentStatusDistribution.find((item) => item.status === "NO_SHOW")?._count);
   const pendingUploads = analytics.processingDistribution.reduce((total, item) => {
-    return item.processingStatus === "READY" ? total : total + item._count;
+    return item.processingStatus === "READY" ? total : total + getAnalyticsGroupCount(item._count);
   }, 0);
   const busiestDoctor = [...analytics.doctorWorkload].sort((left, right) => right.appointmentsToday - left.appointmentsToday)[0];
   const priorities = [

@@ -1,9 +1,21 @@
 import { startOfDay, endOfDay, addDays } from "date-fns";
-import type { Prisma } from "@prisma/client";
+import type { AppointmentStatus, DocumentProcessingStatus } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 
-export type AnalyticsAppointmentStatusItem = Prisma.PromiseReturnType<typeof db.appointment.groupBy>[number];
-export type AnalyticsProcessingStatusItem = Prisma.PromiseReturnType<typeof db.document.groupBy>[number];
+export type AnalyticsAppointmentStatusItem = { status: AppointmentStatus; _count: number | { _all?: number } | true };
+export type AnalyticsProcessingStatusItem = { processingStatus: DocumentProcessingStatus; _count: number | { _all?: number } | true };
+
+export function getAnalyticsGroupCount(value: number | { _all?: number } | true | undefined) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    return value._all ?? 0;
+  }
+
+  return 0;
+}
 export type AnalyticsDoctorWorkloadItem = {
   doctorId: string;
   name: string;

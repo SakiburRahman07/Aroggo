@@ -2,7 +2,7 @@ import { addDays, endOfDay, startOfDay, subDays } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
 import { buildPatientVisibilityWhere, buildTaskVisibilityWhere } from "@/lib/security/scopes";
-import { getWorkspaceAnalytics } from "@/features/analytics/service";
+import { getAnalyticsGroupCount, getWorkspaceAnalytics } from "@/features/analytics/service";
 
 export type ReceptionRecentPatient = Prisma.PatientGetPayload<Record<string, never>>;
 
@@ -274,7 +274,7 @@ export async function getLabDashboard(workspaceId: string, userId: string) {
 
 export async function getOperationsDashboard(workspaceId: string) {
   const analytics = await getWorkspaceAnalytics(workspaceId);
-  const noShowCount = analytics.appointmentStatusDistribution.find((item) => item.status === "NO_SHOW")?._count ?? 0;
+  const noShowCount = getAnalyticsGroupCount(analytics.appointmentStatusDistribution.find((item) => item.status === "NO_SHOW")?._count);
 
   const [agingTasks, departmentLoad] = await Promise.all([
     db.task.findMany({

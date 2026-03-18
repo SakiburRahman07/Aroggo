@@ -39,7 +39,9 @@ export async function sendPatientPortalInviteAction(workspaceSlug: string, patie
     changesJson: {
       patientId,
       expiresAt: result.invite.expiresAt,
-      acceptUrl: result.acceptUrl
+      acceptUrl: result.acceptUrl,
+      emailStatus: result.emailResult.ok ? "SENT" : "FAILED",
+      emailError: result.emailResult.ok ? null : result.emailResult.error
     }
   });
 

@@ -143,7 +143,8 @@ export async function createAppointment(workspaceId: string, createdById: string
       durationMinutes: data.durationMinutes,
       reason: data.reason,
       notes: data.notes || null,
-      status: "SCHEDULED"
+      status: "SCHEDULED",
+      flowState: "SCHEDULED"
     }
   });
 }
@@ -161,10 +162,27 @@ export async function updateAppointmentStatus(workspaceId: string, appointmentId
     throw new Error("Appointment not found in the current access scope.");
   }
 
+  const flowState = data.status === "CONFIRMED"
+    ? "CONFIRMED"
+    : data.status === "CHECKED_IN"
+      ? "ARRIVED"
+      : data.status === "IN_PROGRESS"
+        ? "IN_CONSULTATION"
+        : data.status === "COMPLETED"
+          ? "COMPLETED"
+          : data.status === "CANCELLED"
+            ? "CANCELLED"
+            : data.status === "NO_SHOW"
+              ? "NO_SHOW"
+              : "SCHEDULED";
+
   return db.appointment.update({
     where: { id: appointment.id },
     data: {
-      status: data.status
+      status: data.status,
+      flowState,
+      arrivedAt: data.status === "CHECKED_IN" ? new Date() : undefined,
+      checkedOutAt: data.status === "COMPLETED" ? new Date() : undefined
     }
   });
 }

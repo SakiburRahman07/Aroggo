@@ -143,12 +143,13 @@ export async function createPatientPortalInvite(params: {
   await db.patient.update({
     where: { id: patient.id },
     data: {
-      portalEnabled: true
+      portalEnabled: true,
+      adminState: "PORTAL_INVITED"
     }
   });
 
   const acceptUrl = buildPortalInviteUrl(rawToken);
-  await sendTransactionalEmail({
+  const emailResult = await sendTransactionalEmail({
     workspaceId: params.workspaceId,
     templateKey: "patient-portal-invite",
     recipient: patient.email,
@@ -163,7 +164,8 @@ export async function createPatientPortalInvite(params: {
 
   return {
     invite,
-    acceptUrl
+    acceptUrl,
+    emailResult
   };
 }
 
@@ -244,7 +246,8 @@ export async function activatePatientPortalInvite(params: {
     await tx.patient.update({
       where: { id: invite.patientId },
       data: {
-        portalEnabled: true
+        portalEnabled: true,
+        adminState: "PORTAL_ACTIVE"
       }
     });
 
@@ -375,10 +378,40 @@ export async function getStaffPatientPortalSnapshot(workspaceId: string, patient
     return null;
   }
 
+  const [latestInviteAuditLog, latestInviteEmail] = await Promise.all([
+    latestInvite
+      ? db.auditLog.findFirst({
+          where: {
+            workspaceId,
+            entityType: "patient_portal_invite",
+            entityId: latestInvite.id
+          },
+          orderBy: { createdAt: "desc" }
+        })
+      : Promise.resolve(null),
+    db.emailLog.findFirst({
+      where: {
+        workspaceId,
+        templateKey: "patient-portal-invite",
+        metadataJson: {
+          path: ["patientId"],
+          equals: patientId
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    })
+  ]);
+
+  const manualInviteUrl = latestInviteAuditLog && typeof latestInviteAuditLog.changesJson === "object" && latestInviteAuditLog.changesJson && "acceptUrl" in latestInviteAuditLog.changesJson
+    ? String(latestInviteAuditLog.changesJson.acceptUrl)
+    : null;
+
   return {
     patient,
     portalAccount,
     latestInvite,
+    latestInviteEmail,
+    manualInviteUrl,
     permanentQr,
     releasedDocumentCount,
     releasedVisitCount,
@@ -505,6 +538,7 @@ export async function toggleDocumentRelease(params: {
   return db.document.update({
     where: { id: params.documentId },
     data: {
+      clinicalState: params.released ? "RELEASED_TO_PATIENT" : "SIGNED",
       releasedToPatient: params.released,
       releasedAt: params.released ? new Date() : null,
       releasedById: params.released ? params.actorUserId : null
@@ -527,7 +561,8 @@ export async function toggleVisitRelease(params: {
       releasedAt: params.released ? new Date() : null,
       releasedById: params.released ? params.actorUserId : null,
       patientSummary: params.patientSummary ?? undefined,
-      followUpInstructions: params.followUpInstructions ?? undefined
+      followUpInstructions: params.followUpInstructions ?? undefined,
+      reviewedAt: params.released ? new Date() : undefined
     }
   });
 }

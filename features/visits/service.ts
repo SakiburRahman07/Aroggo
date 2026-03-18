@@ -54,7 +54,8 @@ export async function updateVisit(workspaceId: string, visitId: string, viewer: 
       diagnosisNote: data.diagnosisNote || null,
       prescriptionText: data.prescriptionText || null,
       followUpDate: data.followUpDate ? new Date(data.followUpDate) : null,
-      status: data.status
+      status: data.status,
+      reviewedAt: data.status === "COMPLETED" ? new Date() : undefined
     }
   });
 }
