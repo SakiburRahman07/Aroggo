@@ -328,7 +328,8 @@ export async function activatePatientPortalInvite(params: {
 
   return {
     account,
-    workspaceSlug: invite.workspace.slug
+    workspaceSlug: invite.workspace.slug,
+    email: invite.email
   };
 }
 
@@ -642,3 +643,4 @@ export async function toggleVisitRelease(params: {
     }
   });
 }
+
