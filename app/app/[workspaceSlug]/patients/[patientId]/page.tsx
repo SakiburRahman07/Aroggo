@@ -15,8 +15,9 @@ import { appointmentReadPermissions, documentReadPermissions, patientReadPermiss
 import { getScopedAppointmentAccess, getScopedDocumentAccess, getScopedPatientAccess, getScopedVisitAccess } from "@/lib/security/scopes";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
-export default async function PatientDetailPage({ params }: { params: Promise<{ workspaceSlug: string; patientId: string }> }) {
+export default async function PatientDetailPage({ params, searchParams }: { params: Promise<{ workspaceSlug: string; patientId: string }>; searchParams: Promise<{ error?: string }> }) {
   const { workspaceSlug, patientId } = await params;
+  const { error } = await searchParams;
   const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, patientReadPermissions);
   const [patient, portalSnapshot] = await Promise.all([
     getPatientDetail(workspace.id, patientId, viewer),
@@ -39,6 +40,8 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-8">
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <PageHeader
         eyebrow="Patient detail"
         title={patient.fullName}
@@ -210,3 +213,6 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     </div>
   );
 }
+
+
+

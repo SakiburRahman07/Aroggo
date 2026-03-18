@@ -14,10 +14,22 @@ export function LoginForm() {
   const [isPending, startTransition] = useTransition();
   const created = searchParams.get("created") === "1";
   const reset = searchParams.get("reset") === "1";
-  const invalidQr = searchParams.get("error") === "invalid";
-  const unauthorizedQr = searchParams.get("error") === "unauthorized";
-  const revokedQr = searchParams.get("error") === "revoked";
-  const expiredQr = searchParams.get("error") === "expired";
+  const qrError = searchParams.get("error");
+
+  const qrMessage =
+    qrError === "unauthorized"
+      ? "You are signed in, but this patient is not in your current access scope. For doctors, the patient usually needs to be assigned to your appointment or visit workflow first."
+      : qrError === "revoked"
+        ? "This QR code has been revoked. Ask clinic staff to issue a new patient QR code."
+        : qrError === "expired"
+          ? "This QR code has expired. Ask clinic staff to generate a fresh QR code."
+          : qrError === "session"
+            ? "Your session expired before the QR could be resolved. Sign in again and retry the scan."
+            : qrError === "workflow"
+              ? "The patient QR was found, but the workflow could not be resolved safely. Try again or use manual patient search."
+              : qrError === "invalid"
+                ? "This QR code could not be resolved. Check that the QR is current and belongs to an active patient record."
+                : null;
 
   return (
     <form
@@ -53,10 +65,7 @@ export function LoginForm() {
     >
       {created ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Account created. You can sign in now.</div> : null}
       {reset ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Password updated. Sign in with your new password.</div> : null}
-      {unauthorizedQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">You are signed in, but this patient is not in your current access scope. For doctors, the patient usually needs to be assigned to your appointment or visit workflow first.</div> : null}
-      {invalidQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code could not be resolved. Check that the QR is current and belongs to an active patient record.</div> : null}
-      {revokedQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code has been revoked. Ask the clinic team to issue a fresh patient QR.</div> : null}
-      {expiredQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code has expired. Use the latest QR issued by the clinic or patient portal.</div> : null}
+      {qrMessage ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{qrMessage}</div> : null}
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700" htmlFor="email">

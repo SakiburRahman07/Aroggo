@@ -13,8 +13,9 @@ const statusOptions = ["SCHEDULED", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "C
 
 type AppointmentTask = AppointmentDetail["tasks"][number];
 
-export default async function AppointmentDetailPage({ params }: { params: Promise<{ workspaceSlug: string; appointmentId: string }> }) {
+export default async function AppointmentDetailPage({ params, searchParams }: { params: Promise<{ workspaceSlug: string; appointmentId: string }>; searchParams: Promise<{ error?: string }> }) {
   const { workspaceSlug, appointmentId } = await params;
+  const { error } = await searchParams;
   const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, appointmentReadPermissions);
   const appointmentAccess = getScopedAppointmentAccess(membership.role);
   const visitAccess = getScopedVisitAccess(membership.role);
@@ -29,6 +30,8 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
 
   return (
     <div className="space-y-8">
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
+      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <PageHeader eyebrow="Appointment detail" title={appointment.patient.fullName} description={`${appointment.reason} - ${formatDateTime(appointment.scheduledAt)}`} />
       <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <Card>
@@ -82,3 +85,6 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
     </div>
   );
 }
+
+
+

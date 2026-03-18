@@ -6,6 +6,18 @@ import { signInToAuthSurface } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type FieldErrors = Record<string, string[]>;
+type ApiResponse = {
+  ok?: boolean;
+  data?: {
+    redirectTo?: string;
+  };
+  error?: {
+    message?: string;
+    fieldErrors?: FieldErrors;
+  };
+};
+
 interface SignupFormProps {
   inviteToken?: string;
   inviteEmail?: string;
@@ -13,9 +25,14 @@ interface SignupFormProps {
   roleLabel?: string;
 }
 
+function getFieldError(fieldErrors: FieldErrors, field: string) {
+  return fieldErrors[field]?.[0] ?? null;
+}
+
 export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel }: SignupFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -24,6 +41,7 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
       onSubmit={(event) => {
         event.preventDefault();
         setError(null);
+        setFieldErrors({});
         const formData = new FormData(event.currentTarget);
         const payload = {
           fullName: String(formData.get("fullName") ?? ""),
@@ -44,10 +62,11 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
               body: JSON.stringify(payload)
             });
 
-            const result = (await response.json()) as { error?: string; redirectTo?: string };
+            const result = (await response.json()) as ApiResponse;
 
             if (!response.ok) {
-              setError(result.error ?? "Unable to create your account.");
+              setFieldErrors(result.error?.fieldErrors ?? {});
+              setError(result.error?.message ?? "Unable to create your account.");
               return;
             }
 
@@ -55,7 +74,7 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
               surface: "staff",
               email: payload.email,
               password: payload.password,
-              callbackUrl: result.redirectTo ?? "/app"
+              callbackUrl: result.data?.redirectTo ?? "/app"
             });
 
             if (signInResult.error) {
@@ -63,7 +82,7 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
               return;
             }
 
-            router.push(signInResult.url ?? result.redirectTo ?? "/app");
+            router.push(signInResult.url ?? result.data?.redirectTo ?? "/app");
             router.refresh();
           } catch {
             setError("We could not finish creating your account right now. Please try again.");
@@ -76,20 +95,23 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
         <label className="text-sm font-medium text-slate-700" htmlFor="fullName">
           Full name
         </label>
-        <Input id="fullName" name="fullName" placeholder="Dr. Sarah Ahmed" required />
+        <Input id="fullName" name="fullName" placeholder="Sarah Ahmed" required aria-invalid={Boolean(getFieldError(fieldErrors, "fullName"))} />
+        {getFieldError(fieldErrors, "fullName") ? <p className="text-sm text-red-700">{getFieldError(fieldErrors, "fullName")}</p> : null}
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700" htmlFor="email">
           Work email
         </label>
-        <Input id="email" name="email" type="email" defaultValue={inviteEmail} readOnly={Boolean(inviteEmail)} placeholder="team@clinic.com" required />
+        <Input id="email" name="email" type="email" defaultValue={inviteEmail} readOnly={Boolean(inviteEmail)} placeholder="team@clinic.com" required aria-invalid={Boolean(getFieldError(fieldErrors, "email"))} />
+        {getFieldError(fieldErrors, "email") ? <p className="text-sm text-red-700">{getFieldError(fieldErrors, "email")}</p> : null}
       </div>
       {!inviteToken ? (
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700" htmlFor="workspaceName">
             Clinic workspace name
           </label>
-          <Input id="workspaceName" name="workspaceName" placeholder="North Avenue Family Care" required={!inviteToken} />
+          <Input id="workspaceName" name="workspaceName" placeholder="North Avenue Family Care" required={!inviteToken} aria-invalid={Boolean(getFieldError(fieldErrors, "workspaceName"))} />
+          {getFieldError(fieldErrors, "workspaceName") ? <p className="text-sm text-red-700">{getFieldError(fieldErrors, "workspaceName")}</p> : null}
         </div>
       ) : (
         <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
@@ -101,7 +123,8 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
         <label className="text-sm font-medium text-slate-700" htmlFor="password">
           Password
         </label>
-        <Input id="password" name="password" type="password" placeholder="Create a secure password" required />
+        <Input id="password" name="password" type="password" placeholder="Create a secure password" required aria-invalid={Boolean(getFieldError(fieldErrors, "password"))} />
+        {getFieldError(fieldErrors, "password") ? <p className="text-sm text-red-700">{getFieldError(fieldErrors, "password")}</p> : null}
       </div>
       <Button className="w-full" type="submit" disabled={isPending}>
         {isPending ? "Creating workspace..." : inviteToken ? "Join workspace" : "Create workspace"}

@@ -32,7 +32,7 @@ export default async function DoctorPatientWorkflowPage({ params }: { params: Pr
       <PageHeader
         eyebrow="Doctor Encounter Workspace"
         title={context.patient.fullName}
-        description={`${context.patient.patientCode} · ${context.patient.phone} · Continue consultation, review history, order tests, and publish patient-safe outputs.`}
+        description={`${context.patient.patientCode}  -  ${context.patient.phone}  -  Continue consultation, review history, order tests, and publish patient-safe outputs.`}
         actions={
           <div className="flex gap-3">
             {context.activeVisitId ? (
@@ -186,7 +186,7 @@ export default async function DoctorPatientWorkflowPage({ params }: { params: Pr
               {context.recentReports.map((report) => (
                 <Link key={report.id} href={`/app/${workspaceSlug}/documents/${report.id}`} className="block rounded-2xl border border-border/70 p-4">
                   <p className="font-medium text-slate-950">{report.title}</p>
-                  <p className="mt-1 text-muted-foreground">{report.processingStatus} · {formatDateTime(report.createdAt)}</p>
+                  <p className="mt-1 text-muted-foreground">{report.processingStatus}  -  {formatDateTime(report.createdAt)}</p>
                 </Link>
               ))}
             </CardContent>

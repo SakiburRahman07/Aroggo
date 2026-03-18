@@ -1,6 +1,8 @@
 import { endOfDay, startOfDay } from "date-fns";
 import { type AppointmentStatus, type PatientAdminState, type PatientFlowState, type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
+import { QrFlowError } from "@/features/qr/errors";
 import {
   buildAppointmentVisibilityWhere,
   buildDocumentVisibilityWhere,
@@ -381,14 +383,15 @@ export async function buildActivePatientContext(params: {
   intent?: WorkflowIntent;
 }) {
   const viewer = getViewer(params.role, params.userId);
-  const [workspace, patient, appointments, visits, labOrders, recentReports, followUpTasks] = await Promise.all([
+  const [workspace, workspacePatient, scopedPatient, appointments, visits, labOrders, recentReports, followUpTasks] = await Promise.all([
     db.workspace.findUniqueOrThrow({
       where: { id: params.workspaceId },
       select: { id: true, slug: true }
     }),
     db.patient.findFirst({
       where: {
-        AND: [buildPatientVisibilityWhere(params.workspaceId, viewer), { id: params.patientId }]
+        workspaceId: params.workspaceId,
+        id: params.patientId
       },
       select: {
         id: true,
@@ -399,6 +402,14 @@ export async function buildActivePatientContext(params: {
         dob: true,
         adminState: true,
         portalEnabled: true
+      }
+    }),
+    db.patient.findFirst({
+      where: {
+        AND: [buildPatientVisibilityWhere(params.workspaceId, viewer), { id: params.patientId }]
+      },
+      select: {
+        id: true
       }
     }),
     db.appointment.findMany({
@@ -459,10 +470,29 @@ export async function buildActivePatientContext(params: {
     })
   ]);
 
-  if (!patient) {
-    throw new Error("Patient not found in current scope.");
+  if (!workspacePatient) {
+    throw new QrFlowError("WORKFLOW_CONTEXT_BUILD_FAILED", "Patient record not found in workspace.", {
+      workspaceId: params.workspaceId,
+      patientId: params.patientId,
+      actorUserId: params.userId,
+      actorRole: params.role
+    });
   }
 
+  const hasDoctorLinkedContext = appointments.length > 0 || visits.length > 0;
+  const hasPatientAccess = params.role === "DOCTOR" ? hasDoctorLinkedContext : Boolean(scopedPatient);
+
+  if (!hasPatientAccess) {
+    throw new QrFlowError("PATIENT_SCOPE_DENIED", "Patient is outside the current role visibility scope.", {
+      workspaceId: params.workspaceId,
+      workspaceSlug: workspace.slug,
+      patientId: params.patientId,
+      actorUserId: params.userId,
+      actorRole: params.role
+    });
+  }
+
+  const patient = workspacePatient;
   const now = new Date();
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
@@ -499,6 +529,7 @@ export async function buildActivePatientContext(params: {
     activeLabOrderId: openLabOrders[0]?.id ?? null,
     blockers: [
       ...(activeAppointment ? [] : ["No active appointment is scheduled for today."]),
+      ...(params.role === "DOCTOR" && appointments.length === 0 && visits.length === 0 ? ["This doctor has no linked appointment or visit context for the scanned patient."] : []),
       ...(params.role === "LAB_STAFF" && openLabOrders.length === 0 ? ["No active lab order is attached to this patient."] : [])
     ],
     activeAppointment: activeAppointment
@@ -632,7 +663,11 @@ export async function transitionAppointmentWorkflow(params: {
   });
 
   if (!appointment) {
-    throw new Error("Appointment not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Appointment not found in current access scope.",
+      userMessage: "Appointment not found in the current access scope."
+    });
   }
 
   const now = new Date();
@@ -692,7 +727,11 @@ export async function createLabOrderForPatient(params: {
   });
 
   if (!patient) {
-    throw new Error("Patient not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Patient not found in current access scope.",
+      userMessage: "Patient not found in the current access scope."
+    });
   }
 
   const order = await db.labOrder.create({
@@ -742,7 +781,11 @@ export async function transitionLabOrderStatus(params: {
   });
 
   if (!order) {
-    throw new Error("Lab order not found.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Lab order not found.",
+      userMessage: "Lab order not found."
+    });
   }
 
   const now = new Date();
@@ -790,3 +833,5 @@ export async function transitionLabOrderStatus(params: {
 
   return updated;
 }
+
+

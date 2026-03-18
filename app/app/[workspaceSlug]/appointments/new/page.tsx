@@ -14,10 +14,10 @@ export default async function NewAppointmentPage({
   searchParams
 }: {
   params: Promise<{ workspaceSlug: string }>;
-  searchParams: Promise<{ patientId?: string }>;
+  searchParams: Promise<{ patientId?: string; error?: string }>;
 }) {
   const { workspaceSlug } = await params;
-  const { patientId } = await searchParams;
+  const { patientId, error } = await searchParams;
   const { workspace, viewer } = await requireWorkspaceContext(workspaceSlug, "appointments:write");
   const [patients, doctors] = await Promise.all([listPatientOptions(workspace.id, viewer), listDoctorOptions(workspace.id)]);
   const createAction = createAppointmentAction.bind(null, workspaceSlug);
@@ -25,6 +25,7 @@ export default async function NewAppointmentPage({
   return (
     <div className="space-y-8">
       <PageHeader eyebrow="Appointments" title="Book appointment" description="Prevent scheduling conflicts and link the appointment to the right patient and doctor." />
+      {error ? <div className="max-w-4xl rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <Card className="max-w-4xl">
         <CardHeader>
           <CardTitle>Appointment details</CardTitle>

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
 import { buildVisitVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { noteTaskSuggestionsSchema } from "@/features/ai/validation";
@@ -110,7 +111,11 @@ export async function generateVisitDraft(workspaceId: string, userId: string, vi
   });
 
   if (!visit) {
-    throw new Error("Visit not found.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Visit not found.",
+      userMessage: "Visit not found."
+    });
   }
 
   const draft = isAiConfigured()
@@ -186,7 +191,11 @@ export async function confirmMeetingTasks(workspaceId: string, userId: string, a
   });
 
   if (!query?.metadataJson || typeof query.metadataJson !== "object") {
-    throw new Error("No task suggestions found.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "No task suggestions found.",
+      userMessage: "No task suggestions were found for this note."
+    });
   }
 
   const data = noteTaskSuggestionsSchema.parse(query.metadataJson);
@@ -233,3 +242,4 @@ export async function generateOperationalSummary(
     return previousSummary?.responseSummary ?? fallback;
   }
 }
+

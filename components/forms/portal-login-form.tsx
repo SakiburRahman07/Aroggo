@@ -1,24 +1,38 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signInToAuthSurface } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function PortalLoginForm() {
+type PortalLoginFormProps = {
+  callbackUrl?: string;
+  email?: string;
+  activated?: boolean;
+  activationRequired?: boolean;
+  invalidQr?: boolean;
+  expiredQr?: boolean;
+  revokedQr?: boolean;
+  accountError?: boolean;
+  unauthorizedQr?: boolean;
+};
+
+export function PortalLoginForm({
+  callbackUrl = "/portal",
+  email = "",
+  activated = false,
+  activationRequired = false,
+  invalidQr = false,
+  expiredQr = false,
+  revokedQr = false,
+  accountError = false,
+  unauthorizedQr = false
+}: PortalLoginFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
-  const activated = searchParams.get("activated") === "1";
-  const activationRequired = searchParams.get("activation") === "required";
-  const invalidQr = searchParams.get("error") === "invalid";
-  const expiredQr = searchParams.get("error") === "expired";
-  const revokedQr = searchParams.get("error") === "revoked";
-  const accountError = searchParams.get("error") === "account";
 
   return (
     <form
@@ -27,14 +41,14 @@ export function PortalLoginForm() {
         event.preventDefault();
         setError(null);
         const formData = new FormData(event.currentTarget);
-        const email = String(formData.get("email") ?? "");
+        const submittedEmail = String(formData.get("email") ?? "");
         const password = String(formData.get("password") ?? "");
 
         startTransition(async () => {
           try {
             const response = await signInToAuthSurface({
               surface: "portal",
-              email,
+              email: submittedEmail,
               password,
               callbackUrl
             });
@@ -57,13 +71,14 @@ export function PortalLoginForm() {
       {invalidQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code could not open the portal directly. If your portal is not activated yet, use your invitation link first.</div> : null}
       {expiredQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code has expired. Open the latest portal invitation or ask the clinic to issue a fresh one.</div> : null}
       {revokedQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This QR code has been revoked. Ask the clinic to share an active portal link instead.</div> : null}
+      {unauthorizedQr ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">This portal account cannot open that QR destination. Ask the clinic to confirm your portal access and share the latest link.</div> : null}
       {accountError ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Your portal session is missing or no longer allowed for this patient account. Sign in again with the invited portal email address.</div> : null}
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700" htmlFor="email">
           Portal email
         </label>
-        <Input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={searchParams.get("email") ?? ""} required />
+        <Input id="email" name="email" type="email" placeholder="you@example.com" defaultValue={email} required />
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
