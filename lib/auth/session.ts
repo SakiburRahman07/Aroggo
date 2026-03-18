@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/prisma";
-import { getAuthSession } from "@/lib/auth/options";
+import { getAnyAuthSession, getPortalAuthSession, getStaffAuthSession } from "@/lib/auth/options";
 import { getDefaultDashboardRoute } from "@/lib/security/navigation";
 import { hasRequestedPermission, type PermissionRequest } from "@/lib/security/permissions";
 
 export async function requireUser() {
-  const session = await getAuthSession();
+  const session = await getStaffAuthSession();
 
   if (!session?.user?.id) {
     redirect("/login");
@@ -14,8 +14,18 @@ export async function requireUser() {
   return session.user;
 }
 
+export async function requirePortalUser() {
+  const session = await getPortalAuthSession();
+
+  if (!session?.user?.id) {
+    redirect("/portal/login");
+  }
+
+  return session.user;
+}
+
 export async function getUserWorkspaces() {
-  const session = await getAuthSession();
+  const session = await getStaffAuthSession();
 
   if (!session?.user?.id) {
     return [];
@@ -34,17 +44,35 @@ export async function getUserWorkspaces() {
 }
 
 export async function resolveAuthenticatedHomeRoute() {
-  const user = await requireUser();
-  const memberships = await getUserWorkspaces();
+  const authSession = await getAnyAuthSession();
 
-  if (memberships.length > 0) {
-    const preferredMembership = memberships.find((membership) => membership.role === "SUPER_ADMIN") ?? memberships[0];
-    return getDefaultDashboardRoute(preferredMembership.role, preferredMembership.workspace.slug);
+  if (!authSession?.session.user?.id) {
+    return "/login";
+  }
+
+  const userId = authSession.session.user.id;
+
+  if (authSession.surface === "staff") {
+    const memberships = await db.membership.findMany({
+      where: {
+        userId,
+        status: "ACTIVE"
+      },
+      include: {
+        workspace: true
+      },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }]
+    });
+
+    if (memberships.length > 0) {
+      const preferredMembership = memberships.find((membership) => membership.role === "SUPER_ADMIN") ?? memberships[0];
+      return getDefaultDashboardRoute(preferredMembership.role, preferredMembership.workspace.slug);
+    }
   }
 
   const portalAccount = await db.patientPortalAccount.findFirst({
     where: {
-      userId: user.id,
+      userId,
       portalEnabled: true
     }
   });
@@ -53,7 +81,7 @@ export async function resolveAuthenticatedHomeRoute() {
     return "/portal";
   }
 
-  return "/login";
+  return authSession.surface === "portal" ? "/portal/login" : "/login";
 }
 
 export async function requirePlatformAdmin() {
@@ -125,7 +153,7 @@ export async function requireWorkspaceContext(workspaceSlug: string, permission?
 }
 
 export async function requirePatientPortalContext() {
-  const user = await requireUser();
+  const user = await requirePortalUser();
   const portalAccount = await db.patientPortalAccount.findFirst({
     where: {
       userId: user.id,
@@ -143,7 +171,7 @@ export async function requirePatientPortalContext() {
   });
 
   if (!portalAccount) {
-    redirect(await resolveAuthenticatedHomeRoute());
+    redirect("/portal/login?error=account");
   }
 
   await db.patientPortalAccount.update({

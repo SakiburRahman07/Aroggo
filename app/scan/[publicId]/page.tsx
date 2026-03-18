@@ -1,11 +1,13 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolvePatientQrScan } from "@/features/qr/service";
-import { getAuthSession } from "@/lib/auth/options";
+import { getPortalAuthSession, getStaffAuthSession } from "@/lib/auth/options";
 
 export default async function ScanPage({ params }: { params: Promise<{ publicId: string }> }) {
   const { publicId } = await params;
-  const session = await getAuthSession();
+  const staffSession = await getStaffAuthSession();
+  const portalSession = await getPortalAuthSession();
+  const actingSession = staffSession?.user?.id ? staffSession : portalSession;
   const headerStore = await headers();
   const ipAddress = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const deviceInfo = headerStore.get("user-agent") ?? null;
@@ -13,7 +15,11 @@ export default async function ScanPage({ params }: { params: Promise<{ publicId:
   try {
     const result = await resolvePatientQrScan({
       publicId,
-      userId: session?.user?.id,
+      // If both sessions exist in one browser, QR routing still needs one actor.
+      // We prefer the staff session because clinic scan workflows are staff-first,
+      // but separate cookie namespaces are what prevents portal and staff logins
+      // from overwriting each other in the first place.
+      userId: actingSession?.user?.id,
       ipAddress,
       deviceInfo
     });
@@ -21,7 +27,7 @@ export default async function ScanPage({ params }: { params: Promise<{ publicId:
   } catch (error) {
     const message = error instanceof Error ? error.message : "QR_INVALID";
 
-    if (session?.user?.id) {
+    if (staffSession?.user?.id) {
       const target = message === "QR_REVOKED"
         ? "/login?error=revoked"
         : message === "QR_EXPIRED"

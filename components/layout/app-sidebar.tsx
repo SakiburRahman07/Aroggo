@@ -111,7 +111,7 @@ export function AppSidebar({ workspace, membership, workspaces }: AppSidebarProp
         <div className="rounded-2xl border border-border/70 bg-muted/40 p-3 text-sm text-muted-foreground">
           AI tools stay grounded in your clinic data and are intended for operations, coordination, and documentation support.
         </div>
-        <SignOutButton />
+        <SignOutButton surface="staff" callbackUrl="/login" />
       </div>
     </aside>
   );

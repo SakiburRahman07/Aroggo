@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell, CalendarDays, CreditCard, FileText, ShieldCheck, UserRound } from "lucide-react";
+import { SignOutButton } from "@/components/layout/signout-button";
 import { requirePatientPortalContext } from "@/lib/auth/session";
 
 const navItems = [
@@ -48,6 +49,12 @@ export default async function PortalLayout({ children }: { children: React.React
                 );
               })}
             </nav>
+            <div className="mt-4 space-y-3 border-t border-teal-100 pt-4">
+              <p className="rounded-2xl bg-teal-50 px-4 py-3 text-xs text-teal-900">
+                Portal sign-out only clears the portal session. Staff workspace sessions stay signed in separately.
+              </p>
+              <SignOutButton surface="portal" className="justify-start text-teal-900 hover:bg-teal-50 hover:text-teal-950" />
+            </div>
           </aside>
           <main>{children}</main>
         </div>

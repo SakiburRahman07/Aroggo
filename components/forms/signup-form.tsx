@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signInToAuthSurface } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -35,34 +35,39 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
         };
 
         startTransition(async () => {
-          const response = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-          });
+          try {
+            const response = await fetch("/api/auth/register", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(payload)
+            });
 
-          const result = (await response.json()) as { error?: string; redirectTo?: string };
+            const result = (await response.json()) as { error?: string; redirectTo?: string };
 
-          if (!response.ok) {
-            setError(result.error ?? "Unable to create your account.");
-            return;
+            if (!response.ok) {
+              setError(result.error ?? "Unable to create your account.");
+              return;
+            }
+
+            const signInResult = await signInToAuthSurface({
+              surface: "staff",
+              email: payload.email,
+              password: payload.password,
+              callbackUrl: result.redirectTo ?? "/app"
+            });
+
+            if (signInResult.error) {
+              router.push(`/login?created=1&email=${encodeURIComponent(payload.email)}`);
+              return;
+            }
+
+            router.push(signInResult.url ?? result.redirectTo ?? "/app");
+            router.refresh();
+          } catch {
+            setError("We could not finish creating your account right now. Please try again.");
           }
-
-          const signInResult = await signIn("credentials", {
-            email: payload.email,
-            password: payload.password,
-            redirect: false
-          });
-
-          if (signInResult?.error) {
-            router.push(`/login?created=1&email=${encodeURIComponent(payload.email)}`);
-            return;
-          }
-
-          router.push(result.redirectTo ?? "/app");
-          router.refresh();
         });
       }}
     >
@@ -104,4 +109,3 @@ export function SignupForm({ inviteToken, inviteEmail, workspaceName, roleLabel 
     </form>
   );
 }
-

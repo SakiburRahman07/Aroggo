@@ -1,8 +1,6 @@
 import NextAuth from "next-auth";
 import { staffAuthOptions } from "@/lib/auth/options";
 
-// Keep the legacy endpoint mapped to staff auth so older clients keep working
-// while the app migrates to explicit staff and portal namespaces.
 const handler = NextAuth(staffAuthOptions);
 
 export { handler as GET, handler as POST };

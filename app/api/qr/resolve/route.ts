@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAuthSession } from "@/lib/auth/options";
 import { resolvePatientQrScan } from "@/features/qr/service";
+import { getPortalAuthSession, getStaffAuthSession } from "@/lib/auth/options";
 
 const schema = z.object({
   qr: z.string().min(1),
@@ -10,7 +10,9 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const session = await getAuthSession();
+  const staffSession = await getStaffAuthSession();
+  const portalSession = await getPortalAuthSession();
+  const actingSession = staffSession?.user?.id ? staffSession : portalSession;
   const headerStore = await headers();
   const ipAddress = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const deviceInfo = headerStore.get("user-agent") ?? null;
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
     const publicId = body.qr.includes("/scan/") ? body.qr.split("/scan/").pop() ?? "" : body.qr;
     const result = await resolvePatientQrScan({
       publicId,
-      userId: session?.user?.id,
+      userId: actingSession?.user?.id,
       ipAddress,
       deviceInfo,
       intent: body.intent

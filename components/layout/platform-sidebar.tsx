@@ -65,7 +65,7 @@ export function PlatformSidebar() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-white/70">
           Platform admin actions stay server-authorized and are intended for tenant support, observability, and operations oversight.
         </div>
-        <SignOutButton className="border-white/20 bg-white text-slate-950 hover:bg-white/90" />
+        <SignOutButton surface="staff" callbackUrl="/login" className="border-white/20 bg-white text-slate-950 hover:bg-white/90" />
       </div>
     </aside>
   );
