@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { roleLabels } from "@/lib/security/permissions";
 import { inviteMemberSchema, workspaceSettingsSchema } from "@/features/workspace/validation";
 import { sendWorkspaceInvite } from "@/features/auth/service";
@@ -66,23 +67,28 @@ export async function createWorkspaceInvite(params: {
   input: unknown;
 }) {
   const data = inviteMemberSchema.parse(params.input);
+  const normalizedEmail = data.email.toLowerCase();
   const existingMembership = await db.membership.findFirst({
     where: {
       workspaceId: params.workspaceId,
       user: {
-        email: data.email.toLowerCase()
+        email: normalizedEmail
       }
     }
   });
 
   if (existingMembership) {
-    throw new Error("This user is already a member of the workspace.");
+    throw new AppError({
+      code: "CONFLICT_ERROR",
+      message: "User is already a workspace member.",
+      userMessage: "This user is already a member of the workspace."
+    });
   }
 
   await db.workspaceInvite.updateMany({
     where: {
       workspaceId: params.workspaceId,
-      email: data.email.toLowerCase(),
+      email: normalizedEmail,
       status: "PENDING"
     },
     data: {
@@ -93,7 +99,7 @@ export async function createWorkspaceInvite(params: {
   const invite = await db.workspaceInvite.create({
     data: {
       workspaceId: params.workspaceId,
-      email: data.email.toLowerCase(),
+      email: normalizedEmail,
       token: crypto.randomBytes(24).toString("hex"),
       role: data.role,
       departmentId: data.departmentId,
@@ -113,9 +119,15 @@ export async function createWorkspaceInvite(params: {
   });
 
   if (!emailResult.ok) {
-    throw new Error(
-      `Invite created but email delivery failed: ${emailResult.error}. Use the manual invite link from the Team page instead.`
-    );
+    throw new AppError({
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: `Invite email delivery failed: ${emailResult.error}`,
+      userMessage: "The invite was created, but the email could not be sent. Use the manual invite link from the Team page instead.",
+      details: {
+        workspaceId: params.workspaceId,
+        recipient: invite.email
+      }
+    });
   }
 
   return invite;

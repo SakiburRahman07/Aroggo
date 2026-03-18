@@ -1,3 +1,5 @@
+import { AppError } from "@/lib/errors";
+
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 export function enforceSimpleRateLimit(key: string, limit: number, windowMs: number) {
@@ -10,7 +12,11 @@ export function enforceSimpleRateLimit(key: string, limit: number, windowMs: num
   }
 
   if (bucket.count >= limit) {
-    throw new Error("RATE_LIMITED");
+    throw new AppError({
+      code: "RATE_LIMIT_ERROR",
+      message: "RATE_LIMITED",
+      userMessage: "Too many requests were made. Please wait a moment and try again."
+    });
   }
 
   bucket.count += 1;

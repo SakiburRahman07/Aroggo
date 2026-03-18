@@ -27,6 +27,11 @@ function getErrorCopy(error?: string) {
         title: "Sign in required",
         description: "Your staff session is missing or expired. Sign in again, then retry the patient QR scan."
       };
+    case "rate-limited":
+      return {
+        title: "Too many scan attempts",
+        description: "QR scans are being attempted too quickly. Wait a moment, then try again."
+      };
     case "workflow":
       return {
         title: "Workflow resolution failed",

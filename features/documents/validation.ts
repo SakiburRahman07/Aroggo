@@ -1,10 +1,11 @@
 import { DocumentType } from "@prisma/client";
 import { z } from "zod";
+import { optionalTrimmedString, requiredTrimmedString } from "@/validation/common";
 
 export const documentUploadSchema = z.object({
-  title: z.string().min(2),
-  docType: z.nativeEnum(DocumentType),
-  patientId: z.string().optional()
+  title: requiredTrimmedString("Title", 2),
+  docType: z.nativeEnum(DocumentType, { message: "Select a valid document type." }),
+  patientId: optionalTrimmedString()
 });
 
 export const structuredExtractionSchema = z.object({
@@ -22,4 +23,3 @@ export const structuredExtractionSchema = z.object({
     )
     .default([])
 });
-

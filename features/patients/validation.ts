@@ -1,14 +1,14 @@
 import { Gender } from "@prisma/client";
 import { z } from "zod";
+import { fullNameSchema, optionalEmailSchema, optionalTrimmedString, requiredTrimmedString } from "@/validation/common";
 
 export const patientSchema = z.object({
-  fullName: z.string().min(2),
-  dob: z.string().optional(),
+  fullName: fullNameSchema,
+  dob: optionalTrimmedString(),
   gender: z.nativeEnum(Gender).default(Gender.UNDISCLOSED),
-  phone: z.string().min(6),
-  email: z.string().email().optional().or(z.literal("")),
-  address: z.string().optional(),
-  emergencyContact: z.string().optional(),
-  notes: z.string().optional()
+  phone: requiredTrimmedString("Phone", 6),
+  email: optionalEmailSchema,
+  address: optionalTrimmedString(),
+  emergencyContact: optionalTrimmedString(),
+  notes: optionalTrimmedString()
 });
-

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { buildVisitVisibilityWhere, type ViewerContext } from "@/lib/security/scopes";
 import { visitSchema } from "@/features/visits/validation";
 
@@ -43,7 +44,11 @@ export async function updateVisit(workspaceId: string, visitId: string, viewer: 
   });
 
   if (!visit) {
-    throw new Error("Visit not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Visit not found in scope.",
+      userMessage: "Visit not found in the current access scope."
+    });
   }
 
   return db.visit.update({
@@ -69,7 +74,11 @@ export async function setVisitAiDraft(workspaceId: string, visitId: string, view
   });
 
   if (!visit) {
-    throw new Error("Visit not found in the current access scope.");
+    throw new AppError({
+      code: "NOT_FOUND_ERROR",
+      message: "Visit not found in scope.",
+      userMessage: "Visit not found in the current access scope."
+    });
   }
 
   return db.visit.update({

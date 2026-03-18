@@ -20,10 +20,10 @@ export default async function DocumentsPage({
   searchParams
 }: {
   params: Promise<{ workspaceSlug: string }>;
-  searchParams: Promise<{ patientId?: string; scan?: string }>;
+  searchParams: Promise<{ patientId?: string; scan?: string; error?: string }>;
 }) {
   const { workspaceSlug } = await params;
-  const { patientId: selectedPatientId = "", scan } = await searchParams;
+  const { patientId: selectedPatientId = "", scan, error } = await searchParams;
   const { workspace, membership, viewer } = await requireWorkspaceContext(workspaceSlug, documentReadPermissions);
   const documentAccess = getScopedDocumentAccess(membership.role);
   const patientAccess = getScopedPatientAccess(membership.role);
@@ -40,7 +40,7 @@ export default async function DocumentsPage({
     : null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8">`r`n      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
       <PageHeader
         eyebrow="Documents"
         title={membership.role === "LAB_STAFF" ? "Report workflows" : "Document workflows"}
@@ -137,3 +137,4 @@ export default async function DocumentsPage({
     </div>
   );
 }
+

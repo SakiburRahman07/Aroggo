@@ -64,9 +64,11 @@ export default async function ScanPage({ params }: { params: Promise<{ publicId:
       ? "/portal/login?error=revoked"
       : qrError.code === "QR_EXPIRED"
         ? "/portal/login?error=expired"
-        : qrError.code === "QR_UNAUTHORIZED" || qrError.code === "PATIENT_SCOPE_DENIED"
-          ? "/portal/login?error=unauthorized"
-          : "/portal/login?error=invalid";
+        : qrError.code === "QR_RATE_LIMITED"
+          ? "/portal/login?error=workflow"
+          : qrError.code === "QR_UNAUTHORIZED" || qrError.code === "PATIENT_SCOPE_DENIED"
+            ? "/portal/login?error=unauthorized"
+            : "/portal/login?error=invalid";
     redirect(target);
   }
 

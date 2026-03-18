@@ -2,6 +2,7 @@ import { addHours } from "date-fns";
 import { hash } from "bcryptjs";
 import crypto from "node:crypto";
 import { db } from "@/lib/db/prisma";
+import { AppError, logAppError } from "@/lib/errors";
 import { slugify } from "@/lib/utils";
 import { buildInviteEmail } from "@/emails/invite-email";
 import { buildPasswordResetEmail } from "@/emails/password-reset-email";
@@ -30,10 +31,18 @@ const defaultDepartments = [
 
 export async function registerUser(input: unknown) {
   const data = signUpSchema.parse(input);
-  const existingUser = await db.user.findUnique({ where: { email: data.email } });
+  const normalizedEmail = data.email.toLowerCase();
+  const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
 
   if (existingUser) {
-    throw new Error("An account with this email already exists.");
+    throw new AppError({
+      code: "CONFLICT_ERROR",
+      message: "Duplicate signup email.",
+      userMessage: "An account with this email already exists.",
+      fieldErrors: {
+        email: ["An account with this email already exists."]
+      }
+    });
   }
 
   const passwordHash = await hash(data.password, 12);
@@ -45,17 +54,28 @@ export async function registerUser(input: unknown) {
     });
 
     if (!invite || invite.status !== "PENDING" || invite.expiresAt < new Date()) {
-      throw new Error("This invite is no longer valid.");
+      throw new AppError({
+        code: "BUSINESS_RULE_ERROR",
+        message: "Workspace invite is invalid or expired.",
+        userMessage: "This invite is no longer valid."
+      });
     }
 
-    if (invite.email.toLowerCase() !== data.email.toLowerCase()) {
-      throw new Error("Invite email does not match the signup email.");
+    if (invite.email.toLowerCase() !== normalizedEmail) {
+      throw new AppError({
+        code: "CONFLICT_ERROR",
+        message: "Invite email does not match signup email.",
+        userMessage: "Invite email does not match the signup email.",
+        fieldErrors: {
+          email: ["Invite email does not match the signup email."]
+        }
+      });
     }
 
     const user = await db.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
-          email: data.email.toLowerCase(),
+          email: normalizedEmail,
           name: data.fullName,
           passwordHash,
           profile: {
@@ -98,7 +118,7 @@ export async function registerUser(input: unknown) {
   const result = await db.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: data.email.toLowerCase(),
+        email: normalizedEmail,
         name: data.fullName,
         passwordHash,
         profile: {
@@ -152,8 +172,9 @@ export async function registerUser(input: unknown) {
 
 export async function requestPasswordReset(input: unknown) {
   const data = forgotPasswordSchema.parse(input);
+  const normalizedEmail = data.email.toLowerCase();
   const user = await db.user.findUnique({
-    where: { email: data.email.toLowerCase() },
+    where: { email: normalizedEmail },
     include: { profile: true }
   });
 
@@ -178,13 +199,31 @@ export async function requestPasswordReset(input: unknown) {
     resetUrl
   });
 
-  await sendTransactionalEmail({
+  const sendResult = await sendTransactionalEmail({
     templateKey: "password-reset",
     recipient: user.email,
     subject: email.subject,
     html: email.html,
     text: email.text
   });
+
+  if (!sendResult.ok) {
+    logAppError(
+      new AppError({
+        code: "EXTERNAL_SERVICE_ERROR",
+        message: sendResult.error ?? "Password reset email delivery failed.",
+        userMessage: "We couldn't send the reset email right now.",
+        details: {
+          flow: "password-reset",
+          email: normalizedEmail
+        }
+      }),
+      {
+        route: "auth.requestPasswordReset",
+        email: normalizedEmail
+      }
+    );
+  }
 
   return { ok: true };
 }
@@ -196,7 +235,11 @@ export async function resetPassword(input: unknown) {
   });
 
   if (!token || token.usedAt || token.expiresAt < new Date()) {
-    throw new Error("This reset link is invalid or expired.");
+    throw new AppError({
+      code: "BUSINESS_RULE_ERROR",
+      message: "Reset token is invalid or expired.",
+      userMessage: "This reset link is invalid or expired."
+    });
   }
 
   const passwordHash = await hash(data.password, 12);

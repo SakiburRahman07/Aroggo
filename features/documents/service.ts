@@ -1,6 +1,7 @@
 import pdfParse from "pdf-parse";
 import { type Role } from "@prisma/client";
 import { db } from "@/lib/db/prisma";
+import { AppError } from "@/lib/errors";
 import { chunkText, scoreChunk } from "@/lib/ai/chunking";
 import { generateStructuredData, generateText, isAiConfigured } from "@/lib/ai/groq";
 import {
@@ -135,7 +136,11 @@ export async function uploadAndProcessDocument(params: {
   const file = params.formData.get("file");
 
   if (!(file instanceof File) || file.size === 0) {
-    throw new Error("A document file is required.");
+    throw new AppError({
+      code: "VALIDATION_ERROR",
+      message: "Document file missing.",
+      userMessage: "A document file is required."
+    });
   }
 
   const data = documentUploadSchema.parse({
@@ -145,7 +150,11 @@ export async function uploadAndProcessDocument(params: {
   });
 
   if (!canUploadDocumentType(params.role, data.docType)) {
-    throw new Error("Your role cannot upload this document type.");
+    throw new AppError({
+      code: "AUTHORIZATION_ERROR",
+      message: "Role is not allowed to upload this document type.",
+      userMessage: "Your role cannot upload this document type."
+    });
   }
 
   const storagePath = `${params.workspaceId}/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
@@ -199,15 +208,27 @@ export async function uploadAndProcessDocument(params: {
 
     return document.id;
   } catch (error) {
+    const processingMessage = error instanceof Error ? error.message : "Unknown document processing error";
+
     await db.document.update({
       where: { id: document.id },
       data: {
         processingStatus: "FAILED",
-        processingError: error instanceof Error ? error.message : "Unknown document processing error"
+        processingError: processingMessage
       }
     });
 
-    throw error;
+    throw new AppError({
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: processingMessage,
+      userMessage: "The document could not be processed. Check the file and try again.",
+      details: {
+        documentId: document.id,
+        storagePath,
+        mimeType: file.type
+      },
+      cause: error
+    });
   }
 }
 

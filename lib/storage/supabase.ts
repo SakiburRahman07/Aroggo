@@ -1,9 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/config/env";
+import { AppError } from "@/lib/errors";
 
 export function getSupabaseAdmin() {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Supabase Storage is not configured");
+    throw new AppError({
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: "Supabase Storage is not configured",
+      userMessage: "Document storage is not configured for this environment."
+    });
   }
 
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -24,7 +29,11 @@ export async function uploadDocumentBuffer(path: string, file: File) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw new AppError({
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: error.message,
+      userMessage: "The document could not be uploaded right now. Please try again."
+    });
   }
 
   return path;
@@ -37,9 +46,12 @@ export async function createSignedDocumentUrl(path: string) {
     .createSignedUrl(path, 60 * 15);
 
   if (error) {
-    throw new Error(error.message);
+    throw new AppError({
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: error.message,
+      userMessage: "The document preview is temporarily unavailable."
+    });
   }
 
   return data.signedUrl;
 }
-

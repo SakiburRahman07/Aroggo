@@ -50,6 +50,36 @@ export function getQrFlowError(error: unknown) {
     return error;
   }
 
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    "userMessage" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    const appError = error as { code: string; userMessage: string };
+
+    if (appError.code === "RATE_LIMIT_ERROR") {
+      return new QrFlowError("QR_RATE_LIMITED", appError.userMessage);
+    }
+
+    if (appError.code === "AUTHENTICATION_ERROR") {
+      return new QrFlowError("STAFF_SESSION_REQUIRED", appError.userMessage);
+    }
+
+    if (appError.code === "AUTHORIZATION_ERROR") {
+      return new QrFlowError("QR_UNAUTHORIZED", appError.userMessage);
+    }
+
+    if (appError.code === "NOT_FOUND_ERROR") {
+      return new QrFlowError("QR_INVALID", appError.userMessage);
+    }
+  }
+
+  if (error instanceof Error && error.message === "RATE_LIMITED") {
+    return new QrFlowError("QR_RATE_LIMITED", "Too many QR scans were attempted. Please wait a moment and try again.");
+  }
+
   if (error instanceof Error) {
     return new QrFlowError("WORKFLOW_CONTEXT_BUILD_FAILED", error.message, {
       causeMessage: error.message
@@ -67,6 +97,8 @@ export function getScanErrorQueryValue(code: QrErrorCode) {
       return "revoked";
     case "QR_EXPIRED":
       return "expired";
+    case "QR_RATE_LIMITED":
+      return "rate-limited";
     case "QR_UNAUTHORIZED":
     case "PATIENT_SCOPE_DENIED":
     case "APPOINTMENT_SCOPE_DENIED":
